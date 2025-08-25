@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>영작 타이핑</title>
+  <style>
+    body {font-family: Arial, sans-serif; text-align: center; padding: 30px; line-height: 1.6;}
+    h1 {margin-top: 0;}
+    #question {font-size: 1.4em; margin: 18px 0;}
+    input {font-size: 1.1em; padding: 8px 10px; width: 420px; max-width: 90vw;}
+    button {font-size: 1.05em; padding: 8px 14px; margin: 10px 6px; cursor: pointer;}
+    #feedback {margin-top: 14px; font-size: 1.15em; font-weight: 700; min-height: 1.6em;}
+    #progress {margin-top: 6px; font-size: 0.95em; color: #555;}
+    .wrap {max-width: 720px; margin: 0 auto;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>영작 타이핑</h1>
+    <div id="question"></div>
+    <input type="text" id="answer" placeholder="영어로 입력하세요" autofocus>
+    <div>
+      <button id="checkBtn">정답 확인</button>
+      <button id="clearBtn">지우기</button>
+    </div>
+    <div id="feedback"></div>
+    <div id="progress"></div>
+  </div>
+
+  <script>
+    // 문제 & 정답(여러 변형 허용)
+    const quiz = [
+      { q: "문제1. 나의 학교는 9시에 시작한다.",
+        a: [
+          "my school begins at 9 o'clock",
+          "my school begins at 9",
+          "my school begins at nine o'clock",
+          "my school begins at nine"
+        ]},
+      { q: "문제2. 나는 7시에 일어난다.",
+        a: [
+          "i wake up at 7 o'clock",
+          "i wake up at 7",
+          "i wake up at seven o'clock",
+          "i wake up at seven"
+        ]},
+      { q: "문제3. 나는 매일 학교에 간다.",
+        a: ["i go to school every day"]},
+      { q: "문제4. 그는 아침에 학교로 걸어간다.",
+        a: ["he walks to school in the morning"]},
+      { q: "문제5. 그녀는 운동장에서 달린다.",
+        a: ["she runs on the playground"]},
+      { q: "문제6. 그 수업은 12시에 끝난다.",
+        a: [
+          "the class ends at 12 o'clock",
+          "the class ends at 12",
+          "the class ends at twelve o'clock",
+          "the class ends at twelve"
+        ]},
+      { q: "문제7. 나는 오늘 늦게 일어났다.",
+        a: ["i woke up late today"]},
+      { q: "문제8. 그녀는 매일 학교에 간다.",
+        a: ["she goes to school every day"]}, // (원문 오타 'goes go'를 올바른 정답으로 설정)
+      { q: "문제9. 나는 어제 학교에 걸어갔다.",
+        a: ["i walked to school yesterday"]},
+      { q: "문제10. 나는 운동장에서 달릴 것이다.",
+        a: ["i will run on the playground"]}
+    ];
+
+    let current = 0;
+
+    // 정규화: 대소문자/공백/따옴표 통일 + 문장 끝 마침표/쉼표 등 제거
+    function normalize(text) {
+      return text
+        .trim()
+        .toLowerCase()
+        .replace(/[’']/g, "'")           // ’, ' 통일
+        .replace(/\s+/g, " ")            // 다중 공백 → 한 칸
+        .replace(/[.!?，、,]+$/g, "");   // 끝의 문장부호 제거
+    }
+
+    function showQuestion() {
+      document.getElementById("question").textContent = quiz[current].q;
+      document.getElementById("progress").textContent = `${current + 1} / ${quiz.length}`;
+      document.getElementById("answer").value = "";
+      document.getElementById("feedback").textContent = "";
+      document.getElementById("answer").focus();
+    }
+
+    function checkAnswer() {
+      const user = normalize(document.getElementById("answer").value);
+      const answers = quiz[current].a.map(v => normalize(v));
+      const feedback = document.getElementById("feedback");
+
+      if (answers.includes(user)) {
+        feedback.textContent = "정답입니다! 👍";
+        feedback.style.color = "green";
+        current++;
+        if (current < quiz.length) {
+          setTimeout(showQuestion, 900);
+        } else {
+          feedback.textContent = "축하합니다! 모든 문제를 마쳤습니다. 🎉";
+        }
+      } else {
+        feedback.textContent = "틀렸습니다. 다시 시도하세요.";
+        feedback.style.color = "red";
+      }
+    }
+
+    function clearInput() {
+      document.getElementById("answer").value = "";
+      document.getElementById("feedback").textContent = "";
+      document.getElementById("answer").focus();
+    }
+
+    // 버튼/엔터 연결
+    document.getElementById("checkBtn").addEventListener("click", checkAnswer);
+    document.getElementById("clearBtn").addEventListener("click", clearInput);
+    document.getElementById("answer").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") checkAnswer();
+    });
+
+    // 시작
+    showQuestion();
+  </script>
+</body>
+</html>
