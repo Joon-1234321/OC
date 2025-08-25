@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>영작 타이핑</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; padding: 30px; line-height: 1.6; }
+    h1 { margin-top: 0; }
+    #question { font-size: 1.35em; margin: 18px 0; }
+    input { font-size: 1.1em; padding: 8px 10px; width: 480px; max-width: 92vw; }
+    button { font-size: 1.05em; padding: 8px 14px; margin: 10px 6px; cursor: pointer; }
+    #feedback { margin-top: 10px; font-size: 1.05em; font-weight: 700; min-height: 1.6em; }
+    #progress { margin-top: 6px; font-size: 0.95em; color: #555; }
+    #attempts { margin-top: 6px; font-size: 0.95em; color: #a33; }
+    #answersBox { margin: 12px auto 0; padding: 12px; max-width: 720px; border: 1px dashed #bbb; display: none; background: #fafafa; text-align: left; }
+    #answersBox h3 { margin: 0 0 6px 0; font-size: 1.0em; }
+    #answersBox ul { margin: 6px 0 0 1.1em; }
+    #answersBox li { margin: 4px 0; }
+    .wrap { max-width: 820px; margin: 0 auto; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>영작 타이핑</h1>
+    <div id="question"></div>
+    <input type="text" id="answer" placeholder="영어로 입력하세요" autocomplete="off" autofocus />
+    <div>
+      <button id="checkBtn">정답 확인</button>
+      <button id="clearBtn">지우기</button>
+      <button id="revealBtn" class="hidden">정답 보기</button>
+    </div>
+    <div id="feedback"></div>
+    <div id="attempts"></div>
+    <div id="progress"></div>
+
+    <div id="answersBox">
+      <h3>허용되는 정답(예시)</h3>
+      <ul id="answersList"></ul>
+      <div style="margin-top:6px;color:#555;">※ 위 표현 중 하나를 <b>입력창에 그대로 입력</b>해서 정답 처리 후 다음 문제로 넘어가세요.</div>
+    </div>
+  </div>
+
+  <script>
+    /**************** 설정 ****************/
+    const MAX_WRONG = 3;     // 오답 허용 횟수
+    const ALLOW_FUZZY = true;
+    const FUZZY_DISTANCE = 1; // 오타 허용 글자 수(편집거리)
+
+    // 문제 & 정답(여러 변형 허용) – 마침표 없이 저장 (비교 시 문장부호 제거)
+    const quiz = [
+      { q: "문제1. 나의 학교는 9시에 시작한다.",
+        a: [
+          "my school begins at 9 o'clock",
+          "my school begins at 9",
+          "my school begins at nine o'clock",
+          "my school begins at nine"
+        ]},
+      { q: "문제2. 나는 7시에 일어난다.",
+        a: [
+          "i wake up at 7 o'clock",
+          "i wake up at 7",
+          "i wake up at seven o'clock",
+          "i wake up at seven"
+        ]},
+      { q: "문제3. 나는 매일 학교에 간다.",
+        a: ["i go to school every day"]},
+      { q: "문제4. 그는 아침에 학교로 걸어간다.",
+        a: ["he walks to school in the morning"]},
+      { q: "문제5. 그녀는 운동장에서 달린다.",
+        a: ["she runs on the playground"]},
+      { q: "문제6. 그 수업은 12시에 끝난다.",
+        a: [
+          "the class ends at 12 o'clock",
+          "the class ends at 12",
+          "the class ends at twelve o'clock",
+          "the class ends at twelve"
+        ]},
+      { q: "문제7. 나는 오늘 늦게 일어났다.",
+        a: ["i woke up late today"]},
+      { q: "문제8. 그녀는 매일 학교에 간다.",
+        a: ["she goes to school every day"]}, // 원문 오타(goes go) 교정
+      { q: "문제9. 나는 어제 학교에 걸어갔다.",
+        a: ["i walked to school yesterday"]},
+      { q: "문제10. 나는 운동장에서 달릴 것이다.",
+        a: ["i will run on the playground"]}
+    ];
+
+    /*************** 상태 ***************/
+    let current = 0;
+    let wrongCount = 0;
+    let revealed = false;
+
+    /*************** 유틸 ***************/
+    function normalize(text) {
+      return text
+        .trim()
+        .toLowerCase()
+        .replace(/[’']/g, "'")        // ’, ' 통일
+        .replace(/\s+/g, " ")         // 다중 공백 1칸
+        .replace(/[.!?，、,;:]+$/g, ""); // 끝의 문장부호 제거
+    }
+
+    // Levenshtein 거리
+    function levenshtein(a, b) {
+      const m = a.length, n = b.length;
+      if (m === 0) return n;
+      if (n === 0) return m;
+      const dp = Array.from({length: m+1}, () => new Array(n+1).fill(0));
+      for (let i=0;i<=m;i++) dp[i][0] = i;
+      for (let j=0;j<=n;j++) dp[0][j] = j;
+      for (let i=1;i<=m;i++) {
+        for (let j=1;j<=n;j++) {
+          const cost = a[i-1] === b[j-1] ? 0 : 1;
+          dp[i][j] = Math.min(
+            dp[i-1][j] + 1,     // 삭제
+            dp[i][j-1] + 1,     // 삽입
+            dp[i-1][j-1] + cost // 치환
+          );
+        }
+      }
+      return dp[m][n];
+    }
+
+    function prettySentence(s) {
+      // 표시용: 첫 글자 대문자 + 끝에 마침표
+      const t = s.trim();
+      if (!t) return s;
+      const cap = t.charAt(0).toUpperCase() + t.slice(1);
+      return cap.endsWith(".") ? cap : cap + ".";
+    }
+
+    function setRevealUI(show) {
+      const btn = document.getElementById("revealBtn");
+      btn.classList.toggle("hidden", !show);
+    }
+
+    function showAnswersList() {
+      const box = document.getElementById("answersBox");
+      const list = document.getElementById("answersList");
+      list.innerHTML = "";
+      quiz[current].a.forEach(ans => {
+        const li = document.createElement("li");
+        // 표시용은 표준 apostrophe로
+        li.textContent = prettySentence(ans.replace(/[’]/g, "'"));
+        list.appendChild(li);
+      });
+      box.style.display = "block";
+    }
+
+    function hideAnswersList() {
+      const box = document.getElementById("answersBox");
+      const list = document.getElementById("answersList");
+      list.innerHTML = "";
+      box.style.display = "none";
+    }
+
+    /*************** 화면 ***************/
+    function showQuestion() {
+      document.getElementById("question").textContent = quiz[current].q;
+      document.getElementById("progress").textContent = `${current + 1} / ${quiz.length}`;
+      document.getElementById("answer").value = "";
+      document.getElementById("feedback").textContent = "";
+      document.getElementById("attempts").textContent = "";
+      document.getElementById("answer").focus();
+      wrongCount = 0;
+      revealed = false;
+      setRevealUI(false);
+      hideAnswersList();
+    }
+
+    function checkAnswer() {
+      const userRaw = document.getElementById("answer").value;
+      const user = normalize(userRaw);
+      const answers = quiz[current].a.map(v => normalize(v));
+      const feedback = document.getElementById("feedback");
+      const attempts = document.getElementById("attempts");
+
+      // 정확 일치
+      const exact = answers.includes(user);
+
+      // 오타 허용(편집거리 <= FUZZY_DISTANCE)
+      let fuzzyOK = false;
+      if (!exact && ALLOW_FUZZY) {
+        const minDist = Math.min(...answers.map(a => levenshtein(user, a)));
+        fuzzyOK = (minDist <= FUZZY_DISTANCE);
+      }
+
+      if (exact || fuzzyOK) {
+        feedback.textContent = exact ? "정답입니다! 👍" : "거의 정답! (오타 1개로 정답 처리) ✅";
+        feedback.style.color = exact ? "green" : "#0a7";
+        // 다음 문제로
+        current++;
+        if (current < quiz.length) {
+          setTimeout(showQuestion, 900);
+        } else {
+          feedback.textContent = "축하합니다! 모든 문제를 마쳤습니다. 🎉";
+          attempts.textContent = "";
+          setRevealUI(false);
+          hideAnswersList();
+        }
+        return;
+      }
+
+      // 오답 처리
+      wrongCount++;
+      attempts.textContent = `오답 ${wrongCount} / ${MAX_WRONG}`;
+      feedback.textContent = (wrongCount >= MAX_WRONG)
+        ? "정답 보기 버튼이 활성화되었습니다. 눌러서 정답을 확인하세요."
+        : "틀렸습니다. 다시 시도하세요.";
+      feedback.style.color = "#a33";
+
+      if (wrongCount >= MAX_WRONG) {
+        setRevealUI(true);
+      }
+    }
+
+    function clearInput() {
+      document.getElementById("answer").value = "";
+      document.getElementById("feedback").textContent = "";
+      document.getElementById("answer").focus();
+    }
+
+    // 이벤트
+    document.getElementById("checkBtn").addEventListener("click", checkAnswer);
+    document.getElementById("clearBtn").addEventListener("click", clearInput);
+    document.getElementById("revealBtn").addEventListener("click", () => {
+      revealed = true;
+      showAnswersList();
+      document.getElementById("feedback").textContent =
+        "정답을 확인했어요. 위 표현 중 하나를 입력창에 그대로 입력하면 다음 문제로 넘어갑니다.";
+      document.getElementById("feedback").style.color = "#555";
+      document.getElementById("answer").focus();
+    });
+    document.getElementById("answer").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") checkAnswer();
+    });
+
+    // 시작
+    showQuestion();
+  </script>
+</body>
+</html>
