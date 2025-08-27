@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sentence Reader — ZWSP Mode</title>
+  <style>
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+      background:#f6f7fb; color:#111827;
+    }
+    header{padding:24px 18px 8px;text-align:center}
+    header h1{margin:0 0 6px;font-size:22px;font-weight:700}
+    header p{margin:0;font-size:14px;color:#6b7280}
+    .container{max-width:980px;margin:16px auto 36px;padding:0 16px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+    .sentence-card{
+      display:flex;align-items:flex-start;gap:12px;width:100%;
+      border:1px solid #e5e7eb;background:#fff;border-radius:16px;
+      padding:16px 18px;box-shadow:0 4px 12px rgba(0,0,0,.04);
+      cursor:pointer;transition:transform .12s,box-shadow .12s;
+    }
+    .sentence-card:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(0,0,0,.06);}
+    .sentence-card .num{background:#eef2ff;color:#2563eb;font-weight:700;border-radius:999px;padding:2px 10px;font-size:13px}
+    .sentence-card .text{font-size:18px;line-height:1.4}
+    .sentence-card.speaking{border-color:#2563eb;box-shadow:0 10px 24px rgba(37,99,235,.15)}
+    .toolbar{display:flex;gap:12px;justify-content:center;margin-top:10px;font-size:14px}
+    select, input[type="range"]{padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;background:#fff}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Click a sentence to hear it</h1>
+    <p>ZWSP 모드: 클릭 즉시 발화 (zero-width space로 첫 단어 보존)</p>
+    <div class="toolbar">
+      <label>Voice:
+        <select id="voiceSel"></select>
+      </label>
+      <label>Rate:
+        <input id="rate" type="range" min="0.8" max="1.2" step="0.05" value="1">
+        <span id="rateVal">1.00</span>
+      </label>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="grid" class="grid"></div>
+  </main>
+
+  <script>
+    const sentences = [
+      "My school begins at 9 o’clock.",
+      "I get up at 7 o’clock.",
+      "I go to school every day.",
+      "He walks to school in the morning.",
+      "She runs on the playground.",
+      "The class ends at 12 o’clock.",
+      "I woke up late today.",
+      "She goes to school every day.",
+      "I walked to school yesterday.",
+      "I will run on the playground."
+    ];
+
+    const grid=document.getElementById("grid");
+    sentences.forEach((t,i)=>{
+      const btn=document.createElement("button");
+      btn.className="sentence-card";
+      btn.innerHTML=`<span class="num">${i+1}</span><span class="text" lang="en">${t}</span>`;
+      btn.addEventListener("click",()=>speakZWSP(t,btn));
+      grid.appendChild(btn);
+    });
+
+    const voiceSel=document.getElementById("voiceSel");
+    const rateInput=document.getElementById("rate");
+    const rateVal=document.getElementById("rateVal");
+    rateInput.addEventListener("input",()=>rateVal.textContent=Number(rateInput.value).toFixed(2));
+
+    let voices=[],selectedVoice=null;
+    function loadVoices(){
+      voices=window.speechSynthesis.getVoices();
+      voices.sort((a,b)=>(/^en-/i.test(b.lang)?1:0)-(/^en-/i.test(a.lang)?1:0));
+      voiceSel.innerHTML=voices.map((v,i)=>`<option value="${i}">${v.name} (${v.lang})</option>`).join("");
+      const idx=voices.findIndex(v=>/en-US/i.test(v.lang));
+      voiceSel.selectedIndex=idx>=0?idx:0;
+      selectedVoice=voices[voiceSel.selectedIndex]||null;
+    }
+    window.speechSynthesis.onvoiceschanged=loadVoices;
+    setTimeout(loadVoices,100);
+    voiceSel.addEventListener("change",()=>selectedVoice=voices[voiceSel.selectedIndex]||null);
+
+    function makeUtt(txt,{rate=1,vol=1}={}) {
+      const u=new SpeechSynthesisUtterance(txt);
+      if(selectedVoice){u.voice=selectedVoice;u.lang=selectedVoice.lang;}
+      else u.lang="en-US";
+      u.rate=rate;u.volume=vol;u.pitch=1;
+      return u;
+    }
+
+    let speakingEl=null;
+    function speakZWSP(text,el){
+      const rate=parseFloat(rateInput.value);
+      window.speechSynthesis.cancel();
+      if(speakingEl) speakingEl.classList.remove("speaking");
+      el.classList.add("speaking");speakingEl=el;
+
+      const utt=makeUtt("\u200B"+text,{rate});
+      utt.onend=()=>{el.classList.remove("speaking");speakingEl=null};
+      utt.onerror=utt.onend;
+      window.speechSynthesis.speak(utt);
+    }
+
+    // 모바일 초기 부팅
+    document.addEventListener("touchstart",function once(){
+      document.removeEventListener("touchstart",once);
+      const boot=makeUtt("Okay",{vol:0.1});window.speechSynthesis.speak(boot);
+    },{passive:true});
+  </script>
+</body>
+</html>
+
