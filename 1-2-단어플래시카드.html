@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Flashcards</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 30px;
+    background: #f0f0f0;
+  }
+  .card {
+    width: 220px;
+    height: 140px;
+    perspective: 1000px;
+    margin: 15px;
+    cursor: pointer;
+  }
+  .inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+  }
+  .card.flipped .inner {
+    transform: rotateY(180deg);
+  }
+  .front, .back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6em;
+    font-weight: bold;
+    color: white;
+    padding: 10px;
+  }
+  .front { font-size: 1.6em; }
+  .back  { font-size: 1.2em; transform: rotateY(180deg); }
+
+  /* 카드 색상 5가지 순환 */
+  .blue    { background: #3498db; }
+  .green   { background: #2ecc71; }
+  .orange  { background: #e67e22; }
+  .purple  { background: #9b59b6; }
+  .red     { background: #e74c3c; }
+</style>
+</head>
+<body>
+
+<div class="card" onclick="toggleCard(this,'homeroom teacher')">
+  <div class="inner">
+    <div class="front blue">homeroom teacher</div>
+    <div class="back blue">담임선생님</div>
+  </div>
+</div>
+
+<div class="card" onclick="toggleCard(this,'classmate')">
+  <div class="inner">
+    <div class="front green">classmate</div>
+    <div class="back green">학급친구</div>
+  </div>
+</div>
+
+<div class="card" onclick="toggleCard(this,'favorite')">
+  <div class="inner">
+    <div class="front orange">favorite</div>
+    <div class="back orange">좋아하는</div>
+  </div>
+</div>
+
+<div class="card" onclick="toggleCard(this,'subject')">
+  <div class="inner">
+    <div class="front purple">subject</div>
+    <div class="back purple">과목</div>
+  </div>
+</div>
+
+<div class="card" onclick="toggleCard(this,'English')">
+  <div class="inner">
+    <div class="front red">English</div>
+    <div class="back red">영어</div>
+  </div>
+</div>
+
+<div class="card" onclick="toggleCard(this,'math')">
+  <div class="inner">
+    <div class="front blue">math</div>
+    <div class="back blue">수학</div>
+  </div>
+</div>
+
+<div class="card" onclick="toggleCard(this,'classroom')">
+  <div class="inner">
+    <div class="front green">classroom</div>
+    <div class="back green">교실</div>
+  </div>
+</div>
+
+<div class="card" onclick="toggleCard(this,'clean')">
+  <div class="inner">
+    <div class="front orange">clean</div>
+    <div class="back orange">깨끗한</div>
+  </div>
+</div>
+
+<div class="card" onclick="toggleCard(this,'art')">
+  <div class="inner">
+    <div class="front purple">art</div>
+    <div class="back purple">미술, 예술</div>
+  </div>
+</div>
+
+<div class="card" onclick="toggleCard(this,'small')">
+  <div class="inner">
+    <div class="front red">small</div>
+    <div class="back red">작은</div>
+  </div>
+</div>
+
+<script>
+function speakText(text) {
+  let utter = new SpeechSynthesisUtterance();
+  utter.text = "\u200B " + text; // 첫 단어 생략 방지
+  utter.lang = "en-US";
+  utter.rate = 0.8;  
+  speechSynthesis.cancel(); 
+  speechSynthesis.speak(utter);
+}
+
+function toggleCard(card, text) {
+  card.classList.toggle('flipped');
+  speakText(text);
+}
+</script>
+
+</body>
+</html>
