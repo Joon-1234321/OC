@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>스펠링 입력 연습 (무작위 매번 / 타이핑 전용)</title>
+<style>
+  :root{ --primary:#3498db; --ok:#2ecc71; --warn:#e67e22; --violet:#9b59b6; --text:#333; }
+  *{ box-sizing:border-box; }
+  body{
+    font-family: Arial, "Noto Sans KR", system-ui, sans-serif;
+    background:#f0f0f0; color:var(--text);
+    min-height:100vh; margin:0;
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  #quiz-box{ background:#fff; width:min(520px, 96vw); text-align:center; padding:28px;
+    border-radius:16px; box-shadow:0 8px 20px rgba(0,0,0,.12); }
+  #title{ font-size:18px; color:#666; margin:0 0 6px; }
+  #progress{ font-size:14px; color:#666; margin:0 0 14px; }
+  #korean{ font-size:24px; font-weight:800; margin:12px 0 18px; line-height:1.25; }
+  #answer{
+    width:94%; font-size:18px; padding:11px 14px; text-align:center;
+    border:2px solid var(--primary); border-radius:10px; outline:none;
+  }
+  .btns{ margin-top:16px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  button{
+    padding:10px 16px; border:none; border-radius:10px; color:#fff; font-size:15px;
+    cursor:pointer; transition:transform .05s ease;
+  }
+  button:active{ transform:scale(.98); }
+  #speak{ background:var(--ok); }
+  #check{ background:var(--primary); }
+  #next{ background:var(--warn); display:none; }
+  #retry{ background:var(--violet); display:none; }
+  #feedback{ margin-top:14px; font-weight:800; min-height:30px; }
+  .muted{ color:#888; font-weight:500; font-size:13px; margin-top:6px; }
+</style>
+</head>
+<body>
+<div id="quiz-box" role="main">
+  <div id="title">스펠링 입력 연습</div>
+  <div id="progress">문제 1 / 10</div>
+  <div id="korean">의미가 여기에 표시됩니다</div>
+
+  <form id="form" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <input id="answer" type="text" inputmode="latin" name="no-autofill"
+           autocomplete="new-password" autocapitalize="off"
+           aria-label="영어 단어를 입력하세요" placeholder="영어 단어를 직접 타이핑하세요" />
+    <button type="submit" style="display:none"></button>
+  </form>
+
+  <div class="btns">
+    <button id="speak" type="button">🔊 발음 듣기</button>
+    <button id="check" type="button">정답 확인</button>
+    <button id="next" type="button">다음 문제</button>
+    <button id="retry" type="button">다시 풀기</button>
+  </div>
+
+  <div id="feedback"></div>
+  <div class="muted">※ 자동완성/붙여넣기/드래그 입력은 제한됩니다. 직접 타이핑하세요.</div>
+</div>
+
+<script>
+/* ====== 단어 목록 ====== */
+const words = [
+  {en:"homeroom teacher", ko:"담임선생님"},
+  {en:"classmate",        ko:"학급친구"},
+  {en:"favorite",         ko:"좋아하는"},
+  {en:"subject",          ko:"과목"},
+  {en:"English",          ko:"영어"},
+  {en:"math",             ko:"수학"},
+  {en:"classroom",        ko:"교실"},
+  {en:"clean",            ko:"깨끗한"},
+  {en:"art",              ko:"미술, 예술"},
+  {en:"small",            ko:"작은"}
+];
+
+/* ====== 상태 ====== */
+let order = [...Array(words.length).keys()];
+let currentIndex = 0;
+let attempts = 0;
+let typedByKeyboard = false;
+let composing = false;
+
+/* ====== 요소 (let로 선언! reset 후 재바인딩) ====== */
+let $korean, $answer, $feedback, $progress, $checkBtn, $nextBtn, $retryBtn;
+
+/* ====== 유틸 ====== */
+function cur(){ return words[ order[currentIndex] ]; }
+function shuffle(arr){
+  for(let i=arr.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+}
+
+/* ====== 바인딩 ====== */
+function bindRuntimeElements(){
+  $korean   = document.getElementById("korean");
+  $answer   = document.getElementById("answer");
+  $feedback = document.getElementById("feedback");
+  $progress = document.getElementById("progress");
+  $checkBtn = document.getElementById("check");
+  $nextBtn  = document.getElementById("next");
+  $retryBtn = document.getElementById("retry");
+
+  document.getElementById("speak").addEventListener("click", ()=> speak(cur().en));
+  $checkBtn.addEventListener("click", checkAnswer);
+  document.getElementById("form").addEventListener("submit", (e)=>{ e.preventDefault(); checkAnswer(); });
+  $nextBtn.addEventListener("click", nextQuestion);
+  $retryBtn.addEventListener("click", resetQuiz);
+
+  // 입력 제한
+  $answer.addEventListener("paste", e => { e.preventDefault(); showWarn("📎 붙여넣기는 사용할 수 없습니다."); });
+  $answer.addEventListener("drop",  e => { e.preventDefault(); showWarn("📎 드래그&드롭 입력은 사용할 수 없습니다."); });
+  $answer.addEventListener("contextmenu", e => e.preventDefault());
+  $answer.addEventListener("compositionstart", ()=> composing = true);
+  $answer.addEventListener("compositionend",   ()=> composing = false);
+  $answer.addEventListener("keydown", (e)=>{
+    if(composing) return;
+    const k = e.key;
+    const isTypingKey = (k.length===1)||k==="Backspace"||k==="Spacebar"||k===" "||k==="Delete";
+    if(isTypingKey) typedByKeyboard = true;
+  });
+  $answer.addEventListener("focus", ()=>{
+    setTimeout(()=> $answer.setSelectionRange($answer.value.length, $answer.value.length), 0);
+  });
+}
+
+/* ====== 문제 표시 ====== */
+function loadQuestion(){
+  const w = cur();
+  $korean.textContent = w.ko;               // ★ 한국어 뜻 표시 정상 작동
+  $progress.textContent = `문제 ${currentIndex+1} / ${words.length}`;
+  $feedback.textContent = "";
+  $feedback.style.color = "";
+  $answer.value = "";
+  $nextBtn.style.display = "none";
+  attempts = 0;
+  typedByKeyboard = false;
+
+  setTimeout(()=>{ $answer.focus(); $answer.setSelectionRange(0,0); }, 0);
+}
+
+/* ====== 채점 ====== */
+function checkAnswer(){
+  const user = $answer.value.trim().toLowerCase();
+  const correct = cur().en.toLowerCase();
+
+  if(!typedByKeyboard){ return showWarn("⌨️ 자동완성/붙여넣기 금지: 직접 타이핑하세요."); }
+
+  if(user === correct){
+    $feedback.textContent = "✅ 정답입니다!";
+    $feedback.style.color = "green";
+    setTimeout(nextQuestion, 650);
+  }else{
+    attempts++;
+    if(attempts >= 3){
+      $feedback.innerHTML = `❌ 오답! 정답은: <b>${cur().en}</b><br>정답을 <u>직접 타이핑</u>해서 맞히면 다음 문제로 넘어갑니다.`;
+      $feedback.style.color = "crimson";
+      $nextBtn.style.display = "none";
+      $answer.focus();
+    }else{
+      showWarn(`❌ 오답입니다. 다시 시도! (남은 기회 ${3-attempts}번)`);
+    }
+  }
+}
+
+function showWarn(msg){
+  $feedback.textContent = msg;
+  $feedback.style.color = "crimson";
+}
+
+/* ====== 진행/종료 ====== */
+function nextQuestion(){
+  currentIndex++;
+  if(currentIndex < words.length) loadQuestion();
+  else showFinishScreen();
+}
+
+function showFinishScreen(){
+  document.getElementById("quiz-box").innerHTML = `
+    <h2>🎉 모든 문제를 다 풀었습니다. 수고했어요!</h2>
+    <p style="margin:8px 0 16px;color:#666">다시 연습하면 순서가 매번 섞입니다.</p>
+    <button id="retry2" style="padding:10px 16px;border:none;border-radius:10px;background:#9b59b6;color:#fff;font-size:15px;cursor:pointer;">다시 풀기</button>
+  `;
+  document.getElementById("retry2").addEventListener("click", resetQuiz);
+}
+
+/* ====== 리셋 (매번 무작위) ====== */
+function resetQuiz(){
+  order = [...Array(words.length).keys()];
+  shuffle(order);                 // 매번 새로 섞음
+  currentIndex = 0;
+  attempts = 0;
+  typedByKeyboard = false;
+  composing = false;
+
+  // 초기 레이아웃 복원
+  document.getElementById("quiz-box").innerHTML = `
+    <div id="title">스펠링 입력 연습</div>
+    <div id="progress">문제 1 / ${words.length}</div>
+    <div id="korean"></div>
+    <form id="form" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <input id="answer" type="text" inputmode="latin" name="no-autofill"
+             autocomplete="new-password" autocapitalize="off"
+             aria-label="영어 단어를 입력하세요" placeholder="영어 단어를 직접 타이핑하세요" />
+      <button type="submit" style="display:none"></button>
+    </form>
+    <div class="btns">
+      <button id="speak" type="button">🔊 발음 듣기</button>
+      <button id="check" type="button">정답 확인</button>
+      <button id="next"  type="button" style="display:none">다음 문제</button>
+      <button id="retry" type="button" style="display:none">다시 풀기</button>
+    </div>
+    <div id="feedback"></div>
+    <div class="muted">※ 자동완성/붙여넣기/드래그 입력은 제한됩니다. 직접 타이핑하세요.</div>
+  `;
+  bindRuntimeElements();          // ★ 새 요소 바인딩
+  loadQuestion();                 // ★ 첫 문제 로드(한국어 표시)
+}
+
+/* ====== 발음 (문장읽어주기 방식) ====== */
+function speak(text){
+  const u = new SpeechSynthesisUtterance();
+  u.text = "\u200B " + text;  // ZWSP로 첫소리 보강
+  u.lang = "en-US";
+  u.rate = 0.8;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+/* ====== 시작 ====== */
+shuffle(order);         // 최초도 무작위
+bindRuntimeElements();  // 초기 바인딩
+loadQuestion();         // 첫 문제 표시
+</script>
+</body>
+</html>
