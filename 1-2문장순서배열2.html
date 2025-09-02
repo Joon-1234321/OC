@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>문장순서배열 퀴즈 · Click Only</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg1:#8ec5fc; --bg2:#e0c3fc;
+      --card-bg:rgba(255,255,255,.72);
+      --stroke:rgba(255,255,255,.55);
+      --text:#0f172a;
+      --muted:#475569;
+      --accent:#6366f1;
+      --accent-2:#22c55e;
+      --danger:#ef4444;
+      --chip:#f8fafc;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; color:var(--text); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,Helvetica,Arial,sans-serif;
+      background:linear-gradient(135deg,var(--bg1),var(--bg2)) fixed;
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .app{
+      width:min(920px,100%); position:relative;
+      backdrop-filter:saturate(160%) blur(10px);
+      background:var(--card-bg);
+      border:1px solid var(--stroke);
+      border-radius:20px; box-shadow:0 20px 60px rgba(31,41,55,.25);
+      padding:28px 20px;
+    }
+    header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px}
+    .title{font-weight:800; letter-spacing:.2px; font-size: clamp(18px,2.2vw,22px)}
+    .progress{flex:1; height:10px; background:rgba(15,23,42,.08); border-radius:999px; margin:0 12px; overflow:hidden}
+    .bar{height:100%; width:0%; background:linear-gradient(90deg,var(--accent),#14b8a6); border-radius:inherit; transition:width .45s cubic-bezier(.2,.8,.2,1)}
+    .count{font-size:13px; color:var(--muted); white-space:nowrap}
+
+    .question{
+      margin:8px 6px 16px; text-align:center;
+      font-weight:700; font-size: clamp(18px,3.2vw,22px)
+    }
+
+    .zone{
+      display:flex; flex-wrap:wrap; gap:10px; justify-content:center;
+      padding:14px; border-radius:16px; min-height:72px;
+      background:rgba(255,255,255,.6);
+      border:1px dashed rgba(15,23,42,.18);
+    }
+    .word-bank{margin:10px 0 8px}
+    .answer-area{margin:8px 0 10px; background:rgba(255,255,255,.9)}
+    .hint{font-size:12px; color:var(--muted); text-align:center; margin-top:4px}
+
+    .chip{
+      user-select:none; cursor:pointer;
+      padding:10px 14px; border-radius:12px; background:var(--chip);
+      border:1px solid rgba(2,6,23,.08);
+      box-shadow:0 1px 0 rgba(2,6,23,.06), inset 0 -2px 0 rgba(2,6,23,.02);
+      transition:transform .06s ease, box-shadow .2s ease, background .2s ease;
+      font-weight:600; letter-spacing:.1px;
+    }
+    .chip:hover{transform:translateY(-1px); box-shadow:0 6px 14px rgba(2,6,23,.08)}
+    .chip:active{transform:translateY(0)}
+    .chip.is-answer{background:#eef2ff; border-color:#c7d2fe}
+
+    .controls{
+      display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:10px
+    }
+    button{
+      appearance:none; border:1px solid rgba(2,6,23,.12); background:white; color:var(--text);
+      padding:10px 16px; border-radius:12px; font-weight:700; cursor:pointer;
+      box-shadow:0 1px 0 rgba(2,6,23,.05), inset 0 -2px 0 rgba(2,6,23,.02);
+      transition:transform .06s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+    }
+    button:hover{transform:translateY(-1px); box-shadow:0 8px 18px rgba(2,6,23,.12)}
+    .primary{background:var(--accent); color:white; border-color:transparent}
+    .primary:hover{box-shadow:0 8px 22px rgba(99,102,241,.35)}
+    .ghost{background:transparent}
+    .success{background:var(--accent-2); color:#052e16; border-color:transparent}
+    .danger{background:var(--danger); color:white; border-color:transparent}
+
+    .feedback{
+      min-height:28px; text-align:center; font-weight:800; margin-top:12px;
+      letter-spacing:.2px;
+    }
+    .ok{color:#16a34a}
+    .no{color:#dc2626}
+
+    .finish{
+      text-align:center; padding:26px 10px 10px
+    }
+    .finish h3{margin:0 0 10px; font-size: clamp(20px,3.5vw,26px)}
+    .finish p{margin:0; color:var(--muted)}
+
+    /* confetti */
+    .confetti{pointer-events:none; position:absolute; inset:0; overflow:hidden}
+    .confetti i{
+      position:absolute; width:10px; height:10px; background:#fff; opacity:.9;
+      top:-12px; border-radius:2px; animation:fall 1.2s linear forwards;
+    }
+    @keyframes fall{
+      to{transform:translateY(120vh) rotate(540deg); opacity:1}
+    }
+
+    @media (prefers-color-scheme: dark){
+      :root{ --card-bg:rgba(17,24,39,.6); --stroke:rgba(255,255,255,.08); --text:#e5e7eb; --muted:#9ca3af; --chip:#0b1220}
+      .zone{border-color:rgba(255,255,255,.12)}
+      .answer-area{background:rgba(17,24,39,.72)}
+      button{background:#0b1220; color:#e5e7eb; border-color:rgba(255,255,255,.08)}
+      .chip{border-color:rgba(255,255,255,.08)}
+      .chip.is-answer{background:#111827; border-color:#374151}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header>
+      <div class="title">문장순서배열 · Click</div>
+      <div class="progress" aria-label="진행도">
+        <div class="bar" id="bar"></div>
+      </div>
+      <div class="count"><span id="idx">1</span>/<span id="total">5</span></div>
+    </header>
+
+    <div class="question" id="question"></div>
+
+    <div class="zone word-bank" id="bank" aria-label="단어 목록"></div>
+    <div class="zone answer-area" id="answer" aria-label="답안 영역"></div>
+    <div class="hint">단어를 <b>클릭</b>하면 이동합니다. (답란 단어 클릭 시 원위치)</div>
+
+    <div class="controls">
+      <button class="primary" id="check">정답 확인</button>
+      <button class="ghost" id="undo">되돌리기(←)</button>
+      <button class="ghost" id="clear">지우기</button>
+      <button class="ghost" id="shuffle">다시 섞기</button>
+    </div>
+
+    <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+
+    <div class="confetti" id="confetti" aria-hidden="true"></div>
+  </div>
+
+  <script>
+    const problems = [
+      {kor:"김 선생님은 그의 담임선생님이다.", eng:"Mr. Kim is his homeroom teacher."},
+      {kor:"그녀는 나의 반 친구이다.", eng:"She is my classmate."},
+      {kor:"내가 가장 좋아하는 과목은 수학이다.", eng:"My favorite subject is math."},
+      {kor:"우리 교실은 작지 않다.", eng:"Our classroom is not small."},
+      {kor:"그녀는 매일 학교에 늦는다.", eng:"She is late for school every day."} // 원문이 소문자 she여도 OK
+    ];
+
+    let current = 0;
+    let lastMoves = [];
+
+    const $q = document.getElementById('question');
+    const $bank = document.getElementById('bank');
+    const $ans = document.getElementById('answer');
+    const $feedback = document.getElementById('feedback');
+    const $idx = document.getElementById('idx');
+    const $total = document.getElementById('total');
+    const $bar = document.getElementById('bar');
+    const $confetti = document.getElementById('confetti');
+    $total.textContent = problems.length;
+
+    const shuffle = a => {
+      const arr = a.slice();
+      for (let i=arr.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [arr[i],arr[j]]=[arr[j],arr[i]];
+      }
+      return arr;
+    };
+
+    function chip(text){
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'chip';
+      el.textContent = text;
+      el.addEventListener('click', () => {
+        if (el.parentElement === $bank){
+          $ans.appendChild(el);
+          el.classList.add('is-answer');
+          lastMoves.push({type:'toAnswer', el});
+        }else{
+          $bank.appendChild(el);
+          el.classList.remove('is-answer');
+          lastMoves.push({type:'toBank', el});
+        }
+        setFeedback('');
+      });
+      return el;
+    }
+
+    function setFeedback(msg, ok=false){
+      $feedback.textContent = msg;
+      $feedback.className = 'feedback ' + (msg ? (ok ? 'ok' : 'no') : '');
+    }
+
+    function confettiBurst(){
+      $confetti.innerHTML='';
+      const N = 60;
+      for(let i=0;i<N;i++){
+        const p = document.createElement('i');
+        const left = Math.random()*100;
+        const delay = Math.random()*0.35;
+        const size = 7 + Math.random()*9;
+        p.style.left = left+'%';
+        p.style.width = p.style.height = size+'px';
+        p.style.background = `hsl(${Math.floor(Math.random()*360)} 90% 60%)`;
+        p.style.animationDelay = delay+'s';
+        $confetti.appendChild(p);
+      }
+      setTimeout(()=>($confetti.innerHTML=''), 1500);
+    }
+
+    function load(){
+      const p = problems[current];
+      $q.textContent = `${current+1}. ${p.kor}`;
+      $idx.textContent = current+1;
+      $bar.style.width = ((current)/problems.length*100)+'%';
+
+      $bank.innerHTML = '';
+      $ans.innerHTML = '';
+      setFeedback('');
+      lastMoves = [];
+
+      const words = p.eng.replace(/\./g,'').split(' ');
+      shuffle(words).forEach(w => $bank.appendChild(chip(w)));
+    }
+
+    // 🔧 정답 비교: 마침표·대소문자 무시
+    const normalize = s => s.replace(/\./g,'').trim().toLowerCase().replace(/\s+/g,' ');
+
+    document.getElementById('check').addEventListener('click', () => {
+      const correct = problems[current].eng.trim();
+      const user = (Array.from($ans.children).map(el => el.textContent).join(' ') + '.').trim();
+
+      if (normalize(user) === normalize(correct)){
+        setFeedback('정답입니다! 🎉', true);
+        confettiBurst();
+        setTimeout(()=>{
+          current++;
+          if (current < problems.length){
+            load();
+          }else{
+            $bar.style.width = '100%';
+            document.querySelector('.app').innerHTML =
+              `<div class="finish">
+                 <h3>모든 문제를 완료했습니다! 👏</h3>
+                 <p>Congratulations. You did a good job.</p>
+               </div>`;
+          }
+        }, 900);
+      } else {
+        setFeedback('틀렸습니다. 다시 시도해 보세요!');
+      }
+    });
+
+    document.getElementById('undo').addEventListener('click', () => {
+      if (!lastMoves.length) return;
+      const move = lastMoves.pop();
+      if (move.type === 'toAnswer'){
+        $bank.appendChild(move.el);
+        move.el.classList.remove('is-answer');
+      } else {
+        $ans.appendChild(move.el);
+        move.el.classList.add('is-answer');
+      }
+      setFeedback('');
+    });
+
+    document.getElementById('clear').addEventListener('click', () => {
+      Array.from($ans.children).forEach(el=>{
+        el.classList.remove('is-answer');
+        $bank.appendChild(el);
+      });
+      lastMoves = [];
+      setFeedback('');
+    });
+
+    document.getElementById('shuffle').addEventListener('click', () => {
+      Array.from($ans.children).forEach(el=>{
+        el.classList.remove('is-answer');
+        $bank.appendChild(el);
+      });
+      const items = Array.from($bank.children);
+      shuffle(items).forEach(el => $bank.appendChild(el));
+      lastMoves = [];
+      setFeedback('');
+    });
+
+    load();
+  </script>
+</body>
+</html>
