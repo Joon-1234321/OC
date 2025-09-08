@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>문장 읽어주기</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
+      text-align: center;
+      padding: 30px;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    .sentence {
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 12px;
+      padding: 15px;
+      margin: 10px auto;
+      width: 80%;
+      max-width: 600px;
+      font-size: 20px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      transition: transform 0.2s, background 0.3s;
+    }
+    .sentence:hover {
+      background: rgba(255, 255, 255, 1);
+      transform: scale(1.03);
+    }
+    .controls {
+      margin: 20px;
+      font-size: 16px;
+    }
+    input[type="range"] {
+      width: 200px;
+    }
+    select {
+      padding: 5px 10px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>문장 읽어주기</h1>
+  <div class="controls">
+    <label for="rateRange">읽기 속도: </label>
+    <input type="range" id="rateRange" min="0.5" max="1.5" step="0.05" value="0.9">
+    <span id="rateValue">0.9</span>
+    <br><br>
+    <label for="voiceSelect">음성 선택: </label>
+    <select id="voiceSelect"></select>
+  </div>
+
+  <div class="sentence" onclick="speak(this.innerText)">She is my homeroom teacher.</div>
+  <div class="sentence" onclick="speak(this.innerText)">They are my classmates.</div>
+  <div class="sentence" onclick="speak(this.innerText)">My favorite subject is English.</div>
+  <div class="sentence" onclick="speak(this.innerText)">The classroom is clean.</div>
+  <div class="sentence" onclick="speak(this.innerText)">I am not late for school.</div>
+  <div class="sentence" onclick="speak(this.innerText)">Mr. Kim is his homeroom teacher.</div>
+  <div class="sentence" onclick="speak(this.innerText)">She is my classmate.</div>
+  <div class="sentence" onclick="speak(this.innerText)">My favorite subject is math.</div>
+  <div class="sentence" onclick="speak(this.innerText)">Our classroom is not small.</div>
+  <div class="sentence" onclick="speak(this.innerText)">She is late for school every day.</div>
+
+  <script>
+    let voices = [];
+
+    function loadVoices() {
+      voices = window.speechSynthesis.getVoices();
+      const voiceSelect = document.getElementById("voiceSelect");
+      voiceSelect.innerHTML = "";
+      voices.forEach((voice, i) => {
+        const option = document.createElement("option");
+        option.value = i;
+        option.textContent = `${voice.name} (${voice.lang})`;
+        if (voice.default) option.textContent += " — 기본값";
+        voiceSelect.appendChild(option);
+      });
+    }
+
+    function speak(text) {
+      const zwsp = "\u200B"; // zero-width space
+      const utter = new SpeechSynthesisUtterance(zwsp + text);
+
+      const rate = parseFloat(document.getElementById("rateRange").value);
+      utter.rate = rate;
+
+      const voiceIndex = document.getElementById("voiceSelect").value;
+      if (voices[voiceIndex]) {
+        utter.voice = voices[voiceIndex];
+      } else {
+        utter.lang = "en-US";
+      }
+
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utter);
+    }
+
+    // 속도 슬라이더 값 표시
+    document.getElementById("rateRange").addEventListener("input", function() {
+      document.getElementById("rateValue").innerText = this.value;
+    });
+
+    // 음성 목록 로딩
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    window.onload = loadVoices;
+  </script>
+</body>
+</html>
