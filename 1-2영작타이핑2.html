@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>영작 타이핑</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: linear-gradient(135deg,#f6d365,#fda085); text-align:center; padding:30px; }
+    .card { background: rgba(255,255,255,0.85); border-radius:15px; padding:20px; margin:20px auto; width:80%; max-width:600px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+    h2 { font-size:22px; margin-bottom:15px; }
+    input { width:90%; padding:10px; font-size:16px; border-radius:8px; border:1px solid #ccc; margin-bottom:10px; }
+    button { padding:10px 20px; margin:5px; font-size:16px; border:none; border-radius:8px; cursor:pointer; background:#4caf50; color:#fff; }
+    button:hover { background:#45a049; }
+    .feedback { font-size:18px; margin-top:10px; font-weight:bold; }
+    #retryBtn { display:none; background:#2196F3; }
+    #retryBtn:hover { background:#1976D2; }
+  </style>
+</head>
+<body>
+  <h1>영작 타이핑</h1>
+  <div class="card">
+    <h2 id="question">문제 1.</h2>
+    <input
+      type="text"
+      id="answerInput"
+      placeholder="영어로 입력하세요"
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+    />
+    <br />
+    <button id="checkBtn" onclick="checkAnswer()">정답 확인</button>
+    <button id="clearBtn" onclick="clearInput()">지우기</button>
+    <button id="retryBtn" onclick="retry()">다시 풀기</button>
+    <div id="feedback" class="feedback"></div>
+  </div>
+
+  <script>
+    const originalQuestions = [
+      { text: "Mr. Kim은 그의 담임선생님이다.", a: ["Mr. Kim is his homeroom teacher."] },
+      { text: "그녀는 나의 학급 친구이다.", a: ["She is my classmate.", "She's my classmate"] },
+      { text: "내가 가장 좋아하는 과목은 수학이다.", a: ["My favorite subject is math.", "My favorite subject's math"] },
+      { text: "우리 교실은 작지 않다.", a: ["Our classroom is not small.", "Our classroom isn't small"] },
+      { text: "그녀는 매일 학교에 늦는다.", a: ["She is late for school every day.", "She's late for school every day"] }
+    ];
+
+    let questions = [];
+    let current = 0;
+
+    function normalize(str) {
+      return str
+        .trim()
+        .replace(/[\u2018\u2019\u2032]/g, "'")
+        .replace(/[\u201C\u201D\u2033]/g, '"')
+        .replace(/\s+/g, " ")
+        .replace(/[.!?]$/g, "")
+        .toLowerCase();
+    }
+
+    function isCorrect(input, answers) {
+      const normInput = normalize(input);
+      return answers.some(a => normalize(a) === normInput);
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function showQuestion() {
+      document.getElementById("question").innerText = 
+        `문제 ${current + 1}. ${questions[current].text}`;
+      document.getElementById("answerInput").value = "";
+      document.getElementById("feedback").innerText = "";
+      document.getElementById("answerInput").focus();
+    }
+
+    function checkAnswer() {
+      const input = document.getElementById("answerInput").value;
+      const feedback = document.getElementById("feedback");
+
+      if (isCorrect(input, questions[current].a)) {
+        feedback.style.color = "blue";
+        feedback.innerText = "정답입니다! ✅";
+        current++;
+        if (current < questions.length) {
+          setTimeout(showQuestion, 700);
+        } else {
+          setTimeout(finishQuiz, 700);
+        }
+      } else {
+        feedback.style.color = "red";
+        feedback.innerText = "오답입니다. 다시 시도해 보세요!";
+      }
+    }
+
+    function clearInput() {
+      document.getElementById("answerInput").value = "";
+      document.getElementById("feedback").innerText = "";
+      document.getElementById("answerInput").focus();
+    }
+
+    function finishQuiz() {
+      document.getElementById("question").innerText = "🎉 모든 문제를 완료했습니다! 축하합니다! 🎉";
+      document.getElementById("answerInput").style.display = "none";
+      document.getElementById("checkBtn").style.display = "none";
+      document.getElementById("clearBtn").style.display = "none";
+      document.getElementById("feedback").innerText = "";
+      document.getElementById("retryBtn").style.display = "inline-block";
+    }
+
+    function retry() {
+      current = 0;
+      questions = shuffle([...originalQuestions]);
+      document.getElementById("answerInput").style.display = "inline-block";
+      document.getElementById("checkBtn").style.display = "inline-block";
+      document.getElementById("clearBtn").style.display = "inline-block";
+      document.getElementById("retryBtn").style.display = "none";
+      showQuestion();
+    }
+
+    window.onload = retry;
+  </script>
+</body>
+</html>
