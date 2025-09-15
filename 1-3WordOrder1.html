@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>문장 순서 배열</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #89f7fe, #66a6ff);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 { color: white; text-shadow: 1px 1px 2px #333; }
+    .progress {
+      width: 100%;
+      max-width: 600px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 20px;
+      margin: 10px 0 20px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 20px;
+      width: 0%;
+      background: linear-gradient(90deg, #42a5f5, #478ed1);
+      transition: width 0.3s ease;
+    }
+    .question {
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
+      text-align: center;
+      color: #fff;
+      font-size: 1.2em;
+      max-width: 600px;
+    }
+    .choices, .answer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 15px;
+    }
+    .chip {
+      background: rgba(255,255,255,0.8);
+      padding: 10px 15px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: 0.3s;
+      font-weight: bold;
+    }
+    .chip:hover { background: #fff; transform: scale(1.05); }
+    .chip.used { opacity: 0.4; pointer-events: none; }
+    .answer .chip { background: #ffd54f; }
+    .buttons {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      background: #fff;
+    }
+    .feedback {
+      margin-top: 15px;
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #fff;
+    }
+    @media (max-width: 600px) {
+      .chip { font-size: 0.9em; padding: 8px 12px; }
+      .question { font-size: 1em; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>문장 순서 배열</h1>
+<div class="progress"><div class="progress-bar" id="progress"></div></div>
+<div id="quiz"></div>
+
+<script>
+const sentences = [
+  "I like the lunch menu today.",
+  "She played soccer yesterday.",
+  "We finished our English homework.",
+  "I will do my homework after school.",
+  "He joined the movie club."
+];
+
+let current = 0;
+
+function shuffle(array) {
+  return array.sort(() => Math.random() - 0.5);
+}
+
+function renderQuestion() {
+  const quiz = document.getElementById("quiz");
+  quiz.innerHTML = "";
+
+  if (current >= sentences.length) {
+    quiz.innerHTML = `<h2 style="color:white">🎉 모든 문제를 풀었습니다!</h2>`;
+    document.getElementById("progress").style.width = "100%";
+    confetti();
+    return;
+  }
+
+  const words = sentences[current].split(" ");
+  const shuffled = shuffle([...words]);
+
+  const question = document.createElement("div");
+  question.className = "question";
+  question.innerText = `문장을 올바르게 배열하세요 (${current+1}/${sentences.length})`;
+
+  const choices = document.createElement("div");
+  choices.className = "choices";
+  shuffled.forEach(w => {
+    const chip = document.createElement("div");
+    chip.className = "chip";
+    chip.innerText = w;
+    chip.onclick = () => moveToAnswer(chip, w);
+    choices.appendChild(chip);
+  });
+
+  const answer = document.createElement("div");
+  answer.className = "answer";
+
+  const buttons = document.createElement("div");
+  buttons.className = "buttons";
+  const undoBtn = document.createElement("button");
+  undoBtn.innerText = "되돌리기";
+  undoBtn.onclick = () => {
+    if (answer.lastChild) {
+      const chip = answer.lastChild;
+      answer.removeChild(chip);
+      chip.classList.remove("used");
+      choices.appendChild(chip);
+    }
+  };
+  const clearBtn = document.createElement("button");
+  clearBtn.innerText = "지우기";
+  clearBtn.onclick = () => {
+    [...answer.children].forEach(chip => {
+      chip.classList.remove("used");
+      choices.appendChild(chip);
+    });
+    answer.innerHTML = "";
+  };
+  const shuffleBtn = document.createElement("button");
+  shuffleBtn.innerText = "다시섞기";
+  shuffleBtn.onclick = () => renderQuestion();
+  const checkBtn = document.createElement("button");
+  checkBtn.innerText = "정답 확인";
+  checkBtn.onclick = () => checkAnswer(answer, words);
+
+  buttons.append(undoBtn, clearBtn, shuffleBtn, checkBtn);
+
+  const feedback = document.createElement("div");
+  feedback.className = "feedback";
+
+  quiz.append(question, choices, answer, buttons, feedback);
+  document.getElementById("progress").style.width = `${(current/sentences.length)*100}%`;
+}
+
+function moveToAnswer(chip, word) {
+  const answer = document.querySelector(".answer");
+  const newChip = chip.cloneNode(true);
+  newChip.onclick = () => {
+    newChip.remove();
+  };
+  chip.classList.add("used");
+  answer.appendChild(newChip);
+}
+
+function checkAnswer(answer, words) {
+  const userAnswer = [...answer.children].map(c => c.innerText).join(" ");
+  const feedback = document.querySelector(".feedback");
+  if (userAnswer === words.join(" ")) {
+    feedback.innerHTML = "✅ 정답입니다!";
+    setTimeout(() => { current++; renderQuestion(); }, 1000);
+  } else {
+    feedback.innerHTML = "❌ 틀렸습니다. 다시 시도해 보세요!";
+  }
+}
+
+function confetti() {
+  const duration = 2000;
+  const end = Date.now() + duration;
+
+  (function frame() {
+    const colors = ["#bb0000", "#ffffff", "#00bb00", "#0000bb", "#ffbb00"];
+    const conf = document.createElement("div");
+    conf.innerHTML = "🎉";
+    conf.style.position = "fixed";
+    conf.style.left = Math.random() * 100 + "vw";
+    conf.style.top = "-20px";
+    conf.style.fontSize = "24px";
+    conf.style.animation = "fall 2s linear";
+    document.body.appendChild(conf);
+    setTimeout(() => conf.remove(), 2000);
+    if (Date.now() < end) requestAnimationFrame(frame);
+  })();
+}
+
+renderQuestion();
+</script>
+
+<style>
+@keyframes fall {
+  to { transform: translateY(100vh); }
+}
+</style>
+
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Word Flashcards (Back Korean)</title>
+<style>
+  :root{
+    --blue:#3b82f6;
+    --green:#10b981;
+    --fg:#ffffff;
+    --bg:#f6fafc;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,Apple Color Emoji,Segoe UI Emoji;
+    background:linear-gradient(180deg,#f0f7ff 0%, #f9fffb 100%);
+    min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  header{padding:18px 16px 6px;color:#0f172a;text-align:center}
+  header h1{margin:0;font-size:clamp(18px,2.5vw,24px);font-weight:700}
+  header p{margin:.3rem 0 0;color:#334155;font-size:clamp(12px,2vw,14px)}
+
+  .grid{
+    width:100%;
+    max-width:1200px;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:18px; padding:18px; margin:0 auto 28px;
+  }
+  .card{position:relative;aspect-ratio:2/3;perspective:1000px;cursor:pointer}
+  .inner{
+    position:absolute;inset:0;border-radius:16px;transition:transform .6s;transform-style:preserve-3d;box-shadow:0 10px 24px rgba(2,6,23,.15)
+  }
+  .card.flipped .inner{transform:rotateY(180deg)}
+  .face{
+    position:absolute;inset:0;border-radius:16px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--fg);padding:16px;backface-visibility:hidden
+  }
+  .front{font-weight:800;font-size:clamp(18px,4.5vw,28px);letter-spacing:.5px}
+  .back{transform:rotateY(180deg);font-size:clamp(14px,3.6vw,18px);font-weight:700}
+  .idx-0 .front,.idx-2 .front,.idx-4 .front,.idx-6 .front,.idx-8 .front{background:var(--blue)}
+  .idx-1 .front,.idx-3 .front,.idx-5 .front,.idx-7 .front,.idx-9 .front{background:var(--green)}
+  .idx-0 .back,.idx-2 .back,.idx-4 .back,.idx-6 .back,.idx-8 .back{background:var(--green)}
+  .idx-1 .back,.idx-3 .back,.idx-5 .back,.idx-7 .back,.idx-9 .back{background:var(--blue)}
+
+  .front .word{display:block; padding-left:.2em}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Word Flashcards</h1>
+    <p>앞면: 영어 / 뒷면: 한국어 뜻</p>
+  </header>
+
+  <div class="grid" id="grid"></div>
+
+<script>
+const DATA = [
+  { word: 'play', meaning: '놀다, 경기하다' },
+  { word: 'soccer', meaning: '축구' },
+  { word: 'do', meaning: '하다' },
+  { word: 'homework', meaning: '숙제' },
+  { word: 'finish', meaning: '끝내다' },
+  { word: 'after school', meaning: '방과 후' },
+  { word: 'join', meaning: '참가하다, 가입하다' },
+  { word: 'tomorrow', meaning: '내일' },
+  { word: 'today', meaning: '오늘' },
+  { word: 'yesterday', meaning: '어제' }
+];
+
+const grid = document.getElementById('grid');
+
+DATA.forEach((item, idx) => {
+  const card = document.createElement('div');
+  card.className = `card idx-${idx}`;
+  card.setAttribute('role', 'button');
+  card.setAttribute('tabindex', '0');
+  card.setAttribute('aria-label', `${item.word} flashcard`);
+
+  card.innerHTML = `
+    <div class="inner">
+      <div class="face front">
+        <span class="sr-only">Front: </span>
+        <span class="word">${item.word}</span>
+      </div>
+      <div class="face back">
+        <div>${item.meaning}</div>
+      </div>
+    </div>`;
+
+  const onActivate = () => {
+    speak(item.word);
+    card.classList.toggle('flipped');
+  };
+  card.addEventListener('click', onActivate);
+  card.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivate(); }
+  });
+
+  grid.appendChild(card);
+});
+
+function speak(text){
+  try{
+    const u = new SpeechSynthesisUtterance('\u200B ' + text);
+    u.lang = 'en-US';
+    u.rate = 0.9;
+    const voices = speechSynthesis.getVoices();
+    const prefer = voices.find(v => /English|US|UK|en_/i.test(v.name+v.lang));
+    if (prefer) u.voice = prefer;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch(err){
+    console.warn('TTS error:', err);
+  }
+}
+
+if (speechSynthesis && typeof speechSynthesis.onvoiceschanged !== 'undefined') {
+  speechSynthesis.onvoiceschanged = () => {};
+}
+</script>
+</body>
+</html>

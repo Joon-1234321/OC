@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>단어듣고쓰고뜻맞추기</title>
+<style>
+  :root{
+    --glass: rgba(255,255,255,.18);
+    --panel: rgba(255,255,255,.26);
+    --accent:#42a5f5; --accent2:#7c4dff;
+  }
+  body{
+    margin:0; padding:20px; min-height:100vh;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",Arial,sans-serif;
+    background:linear-gradient(135deg,#8EC5FC,#E0C3FC);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .wrap{width:100%; max-width:820px; background:var(--glass); backdrop-filter:blur(12px);
+    border-radius:18px; padding:18px; box-shadow:0 12px 30px rgba(0,0,0,.18); color:#fff;}
+  h1{text-align:center; text-shadow:0 2px 8px rgba(0,0,0,.25)}
+  .top{display:flex; gap:10px; align-items:center; margin-bottom:10px}
+  .progress{flex:1; height:12px; border-radius:12px; background:rgba(255,255,255,.28); overflow:hidden}
+  .bar{height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .3s}
+  .card{background:var(--panel); border-radius:16px; padding:16px; margin:8px 0}
+  .stage{font-weight:900; opacity:.95; margin-bottom:8px}
+  .row{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:8px 0}
+  .btn{background:#fff; color:#222; border:none; border-radius:12px; padding:10px 16px; font-weight:900; cursor:pointer;}
+  .input{width:min(560px,92%); padding:12px; border:none; border-radius:12px; font-size:1.05rem; text-align:center;}
+  .choices{display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  .choice{background:#fff; color:#222; border:none; border-radius:12px; padding:12px; font-weight:900; cursor:pointer;}
+  .feedback{min-height:26px; text-align:center; font-weight:900; margin-top:6px}
+  @keyframes fall{to{transform:translateY(100vh) rotate(360deg); opacity:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>단어듣고쓰고뜻맞추기</h1>
+  <div class="top">
+    <div id="counter"><b>1 / 12</b></div>
+    <div class="progress"><div class="bar" id="bar"></div></div>
+    <div id="timer">00:00</div>
+  </div>
+
+  <!-- Stage 1 -->
+  <div class="card" id="stage1">
+    <div class="stage">① 듣기 → 스펠링 입력</div>
+    <div class="row">
+      <button class="btn" id="listenBtn">🔊 듣기</button>
+    </div>
+    <div class="row"><input id="spellInput" class="input" type="text" placeholder="철자를 입력하세요" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="row">
+      <button class="btn" id="checkSpell">정답 확인</button>
+      <button class="btn" id="clearSpell">지우기</button>
+    </div>
+    <div class="feedback" id="fb1"></div>
+  </div>
+
+  <!-- Stage 2 -->
+  <div class="card" id="stage2" style="display:none">
+    <div class="stage">② 뜻 고르기</div>
+    <div class="row" style="font-size:1.2rem; font-weight:900; opacity:.9">
+      <span id="previewWord">●●●</span> 의 뜻을 고르세요.
+    </div>
+    <div class="choices" id="choices"></div>
+    <div class="feedback" id="fb2"></div>
+  </div>
+
+  <div id="done" style="display:none; text-align:center"></div>
+</div>
+
+<script>
+const BANK = [
+  {word:"play",      meaning:"놀다; 경기하다"},
+  {word:"soccer",    meaning:"축구"},
+  {word:"homework",  meaning:"숙제"},
+  {word:"finish",    meaning:"끝내다"},
+  {word:"join",      meaning:"가입하다; 참가하다"},
+  {word:"tomorrow",  meaning:"내일"},
+  {word:"today",     meaning:"오늘"},
+  {word:"yesterday", meaning:"어제"},
+  {word:"lunch",     meaning:"점심"},
+  {word:"basketball",meaning:"농구"},
+  {word:"after school", meaning:"방과 후"},
+  {word:"movie",     meaning:"영화"}
+];
+
+let order = shuffle([...Array(BANK.length).keys()]);
+let idx = 0, tries = 0, startTime = Date.now(), timerId = null;
+
+const $ = sel => document.querySelector(sel);
+function shuffle(a){const arr=[...a];for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
+function pad(n){return n<10? "0"+n : ""+n;}
+function setProgress(){ $("#counter").innerHTML=`<b>${idx+1} / ${BANK.length}</b>`; $("#bar").style.width=`${(idx/BANK.length)*100}%`; }
+function startTimer(){ if(timerId) clearInterval(timerId); startTime=Date.now(); timerId=setInterval(()=>{const s=Math.floor((Date.now()-startTime)/1000);$("#timer").textContent=`${pad(Math.floor(s/60))}:${pad(s%60)}`;},250);}
+function tts(text){speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang="en-US"; u.rate=0.9; speechSynthesis.speak(u);}
+function normalize(s){return s.toLowerCase().replace(/\s+/g," ").trim();}
+
+function renderSpell(){
+  $("#stage1").style.display=""; $("#stage2").style.display="none"; $("#fb1").textContent=""; tries=0;
+  const item=BANK[order[idx]]; $("#spellInput").value=""; $("#spellInput").focus();
+  $("#listenBtn").onclick=()=>tts(item.word);
+  $("#checkSpell").onclick=checkSpell; $("#clearSpell").onclick=()=>{$("#spellInput").value="";$("#fb1").textContent="";};
+  $("#spellInput").onkeydown=(e)=>{if(e.key==="Enter"){e.preventDefault(); checkSpell();}};
+  setProgress();
+}
+function checkSpell(){
+  const target=BANK[order[idx]].word, guess=normalize($("#spellInput").value);
+  if(guess===normalize(target)){ $("#fb1").innerHTML="✅ 정답입니다!"; setTimeout(()=>renderMeaning(),600);}
+  else{ tries++; if(tries>=3){$("#fb1").innerHTML=`❌ 힌트: <b>${target[0].toUpperCase()}</b>...`} else {$("#fb1").textContent="❌ 다시 시도해 보세요.";} }
+}
+function renderMeaning(){
+  $("#stage1").style.display="none"; $("#stage2").style.display="";
+  const item=BANK[order[idx]]; $("#previewWord").textContent=item.word; $("#fb2").textContent="";
+  const wrongPool=BANK.filter((_,i)=>i!==order[idx]).map(x=>x.meaning);
+  const choices=shuffle([item.meaning,...shuffle(wrongPool).slice(0,3)]);
+  $("#choices").innerHTML="";
+  choices.forEach(c=>{
+    const b=document.createElement("button"); b.className="choice"; b.textContent=c;
+    b.onclick=()=>{
+      if(c===item.meaning){b.style.background="#c8e6c9";$("#fb2").textContent="✅ 정답입니다!";setTimeout(()=>{idx++;nextItem();},600);}
+      else{b.style.background="#ffcdd2";$("#fb2").textContent="❌ 다시 선택해 보세요.";}
+    };
+    $("#choices").appendChild(b);
+  });
+}
+function nextItem(){ if(idx>=BANK.length){gameOver();} else{renderSpell();} }
+function gameOver(){ clearInterval(timerId); const s=Math.floor((Date.now()-startTime)/1000); $(".wrap").innerHTML=`<h2>🎉 완료!</h2><p>총 소요 시간: ${pad(Math.floor(s/60))}:${pad(s%60)}</p><button class="btn" onclick="location.reload()">다시 풀기</button>`; }
+startTimer(); renderSpell();
+</script>
+</body>
+</html>

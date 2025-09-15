@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>영작 타이핑</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg,#8EC5FC,#E0C3FC);
+      min-height: 100vh;
+      display: flex; justify-content: center; align-items: center;
+      padding: 20px;
+    }
+    .container {
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      width: 100%;
+      max-width: 600px;
+      text-align: center;
+    }
+    h2 { color: #fff; }
+    .question {
+      font-size: 1.2rem;
+      margin-bottom: 16px;
+      color: #fff;
+      font-weight: bold;
+    }
+    input {
+      width: 80%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .feedback {
+      margin-top: 14px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #fff;
+      min-height: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>영작 타이핑</h2>
+    <div class="question" id="question"></div>
+    <input type="text" id="answerInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+    <div class="buttons">
+      <button onclick="checkAnswer()">정답 확인</button>
+      <button onclick="clearInput()">지우기</button>
+    </div>
+    <div class="feedback" id="feedback"></div>
+  </div>
+
+<script>
+const problems = [
+  {kor:"나는 학교 점심이 마음에 든다.", eng:"I like the school lunch."},
+  {kor:"그녀는 오늘 농구를 할 것이다.", eng:"She will play basketball today."},
+  {kor:"그녀는 그녀의 숙제를 끝낼 것이다.", eng:"She will finish her homework."},
+  {kor:"그는 어제 그의 숙제를 했다.", eng:"He did his homework yesterday."},
+  {kor:"나는 책 동아리에 가입했다.", eng:"I joined the book club."}
+];
+
+let current = 0;
+let tries = 0;
+
+function renderQuestion(){
+  if(current >= problems.length){
+    document.querySelector(".container").innerHTML = "<h2>🎉 모든 문제를 완료했습니다!</h2>";
+    return;
+  }
+  document.getElementById("question").innerText = problems[current].kor;
+  document.getElementById("answerInput").value = "";
+  document.getElementById("feedback").innerText = "";
+  tries = 0;
+  document.getElementById("answerInput").focus();
+}
+
+function normalize(str){
+  return str.replace(/\s+/g," ").trim();
+}
+
+function checkAnswer(){
+  const input = normalize(document.getElementById("answerInput").value);
+  const correct = normalize(problems[current].eng);
+
+  if(input === correct){
+    document.getElementById("feedback").innerText = "✅ 정답입니다!";
+    setTimeout(()=>{ current++; renderQuestion(); }, 800);
+  } else {
+    tries++;
+    if(tries >= 3){
+      document.getElementById("feedback").innerText = "❌ 오답 3회! 정답: " + problems[current].eng;
+    } else {
+      document.getElementById("feedback").innerText = "❌ 오답입니다. 다시 시도해 보세요.";
+    }
+  }
+}
+
+function clearInput(){
+  document.getElementById("answerInput").value = "";
+  document.getElementById("feedback").innerText = "";
+  document.getElementById("answerInput").focus();
+}
+
+// ⏎ Enter 키로도 정답 확인 & 재도전 가능
+document.getElementById("answerInput").addEventListener("keydown", function(e){
+  if(e.key === "Enter"){
+    e.preventDefault();
+    checkAnswer();
+  }
+});
+
+renderQuestion();
+</script>
+</body>
+</html>
