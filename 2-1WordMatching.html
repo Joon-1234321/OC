@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>단어매칭게임 (파랑=영단어, 초록=뜻)</title>
+<style>
+  :root{
+    --blue:#a8d8ff;  --blueText:#003366;
+    --green:#b6f2c9; --greenText:#064d2e;
+    --shadow:0 6px 18px rgba(0,0,0,.10);
+  }
+  body{
+    margin:0; padding:20px;
+    font-family:system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif;
+    background:linear-gradient(to bottom,#e0f7ff,#f8fcff);
+    text-align:center;
+  }
+  h1{margin:0 0 8px}
+  #meta{color:#333; margin-bottom:14px}
+  #board{
+    display:grid; gap:14px;
+    grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    max-width:1000px; margin:0 auto;
+  }
+  .card{
+    padding:18px 14px; border-radius:14px; font-weight:800;
+    cursor:pointer; user-select:none; transition:transform .12s ease;
+    box-shadow:var(--shadow);
+  }
+  .card.word   { background:var(--blue);  color:var(--blueText);  }
+  .card.meaning{ background:var(--green); color:var(--greenText); }
+  .card.selected{ transform:scale(1.06); outline:3px solid rgba(0,0,0,.08); }
+  .card.disabled{ pointer-events:none; }
+  @keyframes vanish { from{opacity:1; transform:scale(1)} to{opacity:0; transform:scale(.7)} }
+  .card.vanish{ animation:vanish .22s ease forwards; }
+
+  /* 완료 모달 */
+  .modal{
+    position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.35); z-index:1000; padding:20px;
+  }
+  .modal.show{ display:flex; }
+  .dialog{
+    background:#ffffff; color:#123;
+    border-radius:16px; padding:24px 22px; width:min(560px,92vw);
+    box-shadow:0 20px 50px rgba(0,0,0,.25); text-align:center;
+  }
+  .dialog h2{ margin:0 0 10px; font-size:1.6rem; }
+  .dialog p{ margin:6px 0 18px; font-size:1.05rem; }
+  .btn{
+    display:inline-block; border:0; border-radius:12px; padding:12px 18px;
+    font-weight:800; cursor:pointer; box-shadow:var(--shadow);
+  }
+  .btn-primary{ background:#4a90e2; color:#fff; }
+  .btn-primary:active{ transform:translateY(1px); }
+</style>
+</head>
+<body>
+
+<h1>Word Matching Game</h1>
+<div id="meta">
+ ⏱️ 시간: <span id="t">0</span>초 &nbsp;|&nbsp;
+  🏆 최고: <span id="best">--</span>초
+</div>
+<div id="board"></div>
+
+<!-- 완료 모달 -->
+<div id="winModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+  <div class="dialog">
+    <h2 id="winTitle">🎉 축하합니다!</h2>
+    <p id="winMsg">00초 만에 완료했습니다.</p>
+    <p id="bestMsg">최고 기록: --초</p>
+    <button id="restartBtn" class="btn btn-primary">확인</button>
+  </div>
+</div>
+
+<script>
+const PAIRS = [
+  {w:"always", m:"항상"},
+  {w:"on",     m:"~위에, 켜져 있는"},
+  {w:"travel", m:"여행하다"},
+  {w:"vlog",   m:"브이로그(영상 기록)"},
+  {w:"sleep",  m:"자다"},
+  {w:"from",   m:"~로부터"},
+  {w:"chat",   m:"대화하다"},
+  {w:"tweet",  m:"짹짹거리다, 트윗하다"},
+  {w:"cry",    m:"울다"},
+  {w:"meet",   m:"만나다"}
+];
+
+const KEY = "bestTime_match_set1";
+const board = document.getElementById('board');
+const tEl   = document.getElementById('t');
+const bEl   = document.getElementById('best');
+const modal = document.getElementById('winModal');
+const winMsg= document.getElementById('winMsg');
+const bestMsg= document.getElementById('bestMsg');
+const restartBtn = document.getElementById('restartBtn');
+
+let first = null, lock = false, left = 0, start = 0, tick;
+
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function cardEl(text, role, pid){
+  const el = document.createElement('div');
+  el.className = `card ${role}`;
+  el.textContent = text;
+  el.dataset.role = role;   // 'word' or 'meaning'
+  el.dataset.pid  = String(pid);
+  el.addEventListener('click', ()=>select(el));
+  return el;
+}
+
+function startGame(){
+  // 모달 숨김
+  modal.classList.remove('show');
+
+  board.innerHTML = '';
+  const items = [];
+  PAIRS.forEach((p, i)=>{
+    items.push(cardEl(p.w, 'word',    i));
+    items.push(cardEl(p.m, 'meaning', i));
+  });
+  shuffle(items).forEach(n=>board.appendChild(n));
+  left = items.length;
+  first = null; lock = false;
+  start = Date.now();
+  clearInterval(tick);
+  tEl.textContent = '0';
+  tick = setInterval(()=> {
+    tEl.textContent = Math.floor((Date.now()-start)/1000);
+  }, 250);
+
+  const best = localStorage.getItem(KEY);
+  if(best) bEl.textContent = best;
+}
+
+function select(el){
+  if(lock || el.classList.contains('disabled')) return;
+  if(!first){
+    first = el; el.classList.add('selected');
+    return;
+  }
+  if(first === el) return;
+
+  lock = true;
+  const isMatch = (first.dataset.pid === el.dataset.pid) &&
+                  (first.dataset.role !== el.dataset.role);
+
+  if(isMatch){
+    first.classList.add('disabled','vanish');
+    el.classList.add('disabled','vanish');
+    setTimeout(()=>{
+      first.remove();
+      el.remove();
+      left -= 2;
+      first = null; lock = false;
+      checkWin();
+    }, 230);
+  }else{
+    setTimeout(()=>{
+      first.classList.remove('selected');
+      first = null; lock = false;
+    }, 220);
+  }
+}
+
+function checkWin(){
+  if(left===0){
+    clearInterval(tick);
+    const time = tEl.textContent;
+    // 최고기록 갱신
+    const prev = localStorage.getItem(KEY);
+    let best = prev;
+    if(!prev || Number(time) < Number(prev)){
+      best = time;
+      localStorage.setItem(KEY, best);
+    }
+    bEl.textContent = best || time;
+
+    // 모달 표시
+    winMsg.textContent = `${time}초 만에 완료했습니다.`;
+    bestMsg.textContent = `최고 기록: ${best || time}초`;
+    modal.classList.add('show');
+    // 확인 버튼 포커스
+    setTimeout(()=> restartBtn.focus(), 0);
+  }
+}
+
+restartBtn.addEventListener('click', startGame);
+
+// 처음 시작
+startGame();
+</script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>문장순서배열 퀴즈 (버그 수정)</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:linear-gradient(135deg,#c9eaff,#f9f9ff);
+       margin:0;padding:20px;text-align:center}
+  h1{margin-bottom:10px}
+  #quiz{max-width:800px;margin:auto}
+  .sentence-box,.answer-box{
+    display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+    margin:15px 0;padding:15px;border-radius:16px;backdrop-filter:blur(8px);
+    background:rgba(255,255,255,.5);min-height:60px
+  }
+  .word{padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.9);
+        box-shadow:0 4px 10px rgba(0,0,0,.08);cursor:pointer;font-weight:600;user-select:none;
+        transition:transform .2s}
+  .word:hover{transform:scale(1.05)}
+  button{margin:6px;padding:10px 16px;border:0;border-radius:8px;font-weight:600;cursor:pointer}
+  .btn-main{background:#4a90e2;color:#fff}.btn-sub{background:#eee}
+  #feedback{font-size:1.1em;margin-top:10px} #progress{margin:12px 0}
+</style>
+</head>
+<body>
+<h1>문장 순서 배열</h1>
+<div id="quiz"></div>
+<div id="controls">
+  <button class="btn-sub" onclick="undo()">되돌리기</button>
+  <button class="btn-sub" onclick="clearAnswer()">지우기</button>
+  <button class="btn-sub" onclick="shuffleWords()">다시섞기</button>
+  <button class="btn-main" onclick="checkAnswer()">정답 확인</button>
+</div>
+<div id="feedback"></div>
+<div id="progress"></div>
+
+<script>
+const sentences=[
+  "She is always on Facebook",
+  "This Tiktoker is from Korea",
+  "The dog is sleeping in her video",
+  "We chatted on Tiktok",
+  "There are many travel vlogs",
+  "She is not on Instagram",
+  "This YouTuber is not from Jeju",
+  "He tweeted with his friends",
+  "The baby cried in the video",
+  "There are not many school vlogs"
+];
+
+let current=0, answer=[], words=[];
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function render(){
+  const quiz=document.getElementById("quiz");
+  quiz.innerHTML="";
+  document.getElementById("feedback").textContent="";
+  document.getElementById("progress").textContent=`문제 ${current+1} / ${sentences.length}`;
+
+  answer=[];
+  const s=sentences[current];
+  words = shuffle(s.split(" "));       // ✅ 실제로 섞기
+  renderBoxes();
+}
+
+function renderBoxes(){
+  const quiz=document.getElementById("quiz");
+  quiz.innerHTML = "";                  // ✅ 이전 박스 비우기
+
+  const sBox=document.createElement("div");
+  sBox.className="sentence-box";
+  words.forEach((w,i)=>{
+    const span=document.createElement("span");
+    span.className="word"; span.textContent=w;
+    span.onclick=()=>moveToAnswer(i);
+    sBox.appendChild(span);
+  });
+
+  const aBox=document.createElement("div");
+  aBox.className="answer-box";
+  answer.forEach((w,i)=>{
+    const span=document.createElement("span");
+    span.className="word"; span.textContent=w;
+    span.onclick=()=>moveBack(i);
+    aBox.appendChild(span);
+  });
+
+  quiz.appendChild(sBox);
+  quiz.appendChild(aBox);
+}
+
+function moveToAnswer(i){
+  answer.push(words[i]);
+  words.splice(i,1);
+  renderBoxes();
+}
+function moveBack(i){
+  words.push(answer[i]);
+  answer.splice(i,1);
+  renderBoxes();
+}
+function undo(){
+  if(answer.length>0){
+    words.push(answer.pop());
+    renderBoxes();
+  }
+}
+function clearAnswer(){
+  words = words.concat(answer);
+  answer=[];
+  renderBoxes();
+}
+function shuffleWords(){
+  words = shuffle(words.concat(answer));
+  answer=[];
+  renderBoxes();
+}
+function checkAnswer(){
+  const joined=answer.join(" ");
+  if(joined===sentences[current]){
+    document.getElementById("feedback").textContent="✅ 정답입니다! 잘했어요 🎉";
+    setTimeout(()=>{
+      current++;
+      if(current<sentences.length){ render(); }
+      else{
+        document.getElementById("quiz").innerHTML="<h2>🎉 모든 문제 완료!</h2>";
+        document.getElementById("controls").style.display="none";
+        document.getElementById("progress").textContent="";
+      }
+    },800);
+  } else {
+    document.getElementById("feedback").textContent="❌ 틀렸습니다. 다시 시도해 보세요!";
+  }
+}
+
+render();
+</script>
+</body>
+</html>

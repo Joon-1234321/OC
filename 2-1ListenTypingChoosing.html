@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>단어듣고쓰고뜻맞추기 – 힌트 제거</title>
+<style>
+  body{font-family:system-ui,sans-serif;text-align:center;padding:20px;
+       background:linear-gradient(to bottom,#f0faff,#ffffff);}
+  #container{max-width:680px;margin:auto;background:#fff;padding:20px;
+             border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.1);}
+  h1{margin:0 0 12px}
+  .row{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
+  select,input{padding:8px;font-size:1rem}
+  button{padding:10px 16px;border:0;border-radius:8px;font-weight:700;cursor:pointer;}
+  .btn-speak{background:#4a90e2;color:#fff;}
+  .btn-check{background:#50c878;color:#fff;}
+  .btn-option{background:#eee;width:100%;margin:6px 0;padding:12px;font-weight:700;}
+  .btn-option.correct{background:#50c878;color:#fff;}
+  .btn-option.wrong{background:#ff6b6b;color:#fff;}
+  #tip{font-size:.9rem;color:#555;margin-top:6px}
+</style>
+</head>
+<body>
+<div id="container">
+  <h1>단어 듣고 쓰고 뜻 맞추기</h1>
+  <div class="row">
+    <label for="voiceSel">음성:</label>
+    <select id="voiceSel"></select>
+    <button id="testBtn" class="btn-speak">🔊 테스트</button>
+  </div>
+  <div id="tip">※ iPad/iPhone은 무음 스위치/방해금지 해제 필요</div>
+  <div id="quiz" style="margin-top:14px;"></div>
+</div>
+
+<script>
+const WORDS=[
+  {w:"always", m:"항상"},
+  {w:"on", m:"~위에, 켜져 있는"},
+  {w:"travel", m:"여행하다"},
+  {w:"vlog", m:"브이로그(영상 기록)"},
+  {w:"sleep", m:"자다"},
+  {w:"from", m:"~로부터"},
+  {w:"chat", m:"대화하다"},
+  {w:"tweet", m:"짹짹거리다, 트윗하다"},
+  {w:"cry", m:"울다"},
+  {w:"meet", m:"만나다"}
+];
+let current=0, stage="spell", score=0, total=WORDS.length*2;
+const quizDiv=document.getElementById("quiz"),voiceSel=document.getElementById("voiceSel");
+
+let voices=[], enVoice=null;
+function loadVoices(){voices=speechSynthesis.getVoices();
+  voiceSel.innerHTML="";
+  voices.forEach((v,i)=>{
+    const opt=document.createElement("option");
+    opt.value=i; opt.textContent=`${v.name} (${v.lang})`; voiceSel.appendChild(opt);
+  });
+  enVoice=voices.find(v=>/en/i.test(v.lang))||voices[0]; 
+  voiceSel.value=voices.indexOf(enVoice);
+}
+speechSynthesis.onvoiceschanged=loadVoices; loadVoices();
+
+function speakWord(text){
+  speechSynthesis.cancel(); speechSynthesis.resume();
+  const u=new SpeechSynthesisUtterance("\u200B, \u00A0"+text);
+  u.voice=voices[voiceSel.value]||enVoice; u.lang="en-US"; u.rate=0.85;
+  setTimeout(()=>speechSynthesis.speak(u),60);
+}
+
+function render(){
+  quizDiv.innerHTML="";
+  if(current>=WORDS.length){
+    const percent=Math.round(score/total*100);
+    quizDiv.innerHTML=`<h2>🎉 완료!</h2><p>점수: ${score}/${total} (${percent}%)</p>
+    <button class="btn-check" onclick="restart()">다시 시작</button>`;
+    return;
+  }
+  const item=WORDS[current];
+  if(stage==="spell"){
+    const row=document.createElement("div"); row.className="row";
+    const btn=document.createElement("button");
+    btn.className="btn-speak"; btn.textContent="🔊 단어 듣기"; btn.onclick=()=>speakWord(item.w);
+    row.appendChild(btn);
+    const input=document.createElement("input");
+    input.id="answer"; input.placeholder="스펠링 입력"; input.autocomplete="off"; input.spellcheck=false;
+    const check=document.createElement("button");
+    check.className="btn-check"; check.textContent="정답 확인";
+    check.onclick=()=>{
+      if(input.value.trim().toLowerCase()===item.w.toLowerCase()){score++;stage="meaning";render();}
+      else alert("❌ 다시 시도해 보세요!");
+    };
+    quizDiv.appendChild(row); quizDiv.appendChild(input); quizDiv.appendChild(document.createElement("br")); quizDiv.appendChild(check);
+  }else{
+    const q=document.createElement("h3"); q.textContent="뜻을 고르세요:"; quizDiv.appendChild(q);
+    let opts=[item.m]; while(opts.length<4){
+      const m=WORDS[Math.floor(Math.random()*WORDS.length)].m;
+      if(!opts.includes(m)) opts.push(m);
+    }
+    opts.sort(()=>Math.random()-0.5);
+    opts.forEach(opt=>{
+      const b=document.createElement("button"); b.className="btn-option"; b.textContent=opt;
+      b.onclick=()=>{
+        if(opt===item.m){score++; b.classList.add("correct"); setTimeout(()=>{current++;stage="spell";render();},500);}
+        else b.classList.add("wrong");
+      };
+      quizDiv.appendChild(b);
+    });
+  }
+}
+function restart(){current=0; stage="spell"; score=0; render();}
+render();
+</script>
+</body>
+</html>

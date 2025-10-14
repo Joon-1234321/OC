@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Word Flashcards – 2-tone + Clear TTS</title>
+<style>
+  :root{
+    --frontA:#4a90e2;   /* 파랑 */
+    --frontB:#2fbf71;   /* 초록 */
+    --back:#1f3a5f;     /* 뒤면: 진한 남색 */
+    --text:#fff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:#f4f8ff;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap:20px;
+    padding:24px;
+  }
+  .card{
+    height:150px;
+    perspective: 1200px;
+  }
+  .inner{
+    position:relative;
+    width:100%;
+    height:100%;
+    transform-style:preserve-3d;
+    transform-origin:center center;            /* 중심 고정 */
+    transition: transform 560ms cubic-bezier(.2,.7,.2,1);
+    will-change: transform;
+    cursor:pointer;
+  }
+  .card.flipped .inner{ transform: rotateY(180deg); }
+
+  .side{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    backface-visibility:hidden;
+    border-radius:18px;
+    color:var(--text);
+    font-weight:800;
+    line-height:1.2;
+    padding:14px;
+    text-align:center;
+    transform: translateZ(0); /* 미세 흔들림 방지 */
+  }
+  .front{ font-size: clamp(20px, 3.2vw, 30px); }
+  .back{  font-size: clamp(18px, 2.6vw, 26px); background:var(--back); transform: rotateY(180deg); }
+
+  /* 앞면 두 가지 색 번갈아 */
+  .toneA .front{ background: var(--frontA); }
+  .toneB .front{ background: var(--frontB); }
+
+  /* 접근성 포커스 */
+  .inner:focus-visible{ outline:3px solid #ffd166; outline-offset:4px; border-radius:18px; }
+</style>
+</head>
+<body>
+
+<!-- 카드들은 JS에서 생성합니다 -->
+
+<script>
+const data = [
+  {w:'always', m:'항상'},
+  {w:'on',     m:'~위에, 켜져 있는'},
+  {w:'travel', m:'여행하다'},
+  {w:'vlog',   m:'브이로그(영상 기록)'},
+  {w:'sleep',  m:'자다'},
+  {w:'from',   m:'~로부터'},
+  {w:'chat',   m:'대화하다'},
+  {w:'tweet',  m:'짹짹거리다, 트윗하다'},
+  {w:'cry',    m:'울다'},
+  {w:'meet',   m:'만나다'}
+];
+
+// ===== TTS 품질 개선 =====
+let voiceReady = false;
+let enVoice = null;
+function pickEnglishVoice(){
+  const vs = speechSynthesis.getVoices();
+  if(!vs || !vs.length) return null;
+  // 선호 순서로 선택
+  const prefer = [
+    /Google US English/i,
+    /Google UK English/i,
+    /Microsoft.*(Aria|Guy)/i,
+    /en[-_](US|GB)/i
+  ];
+  for(const p of prefer){
+    const found = vs.find(v=>p.test(v.name) || p.test(v.lang));
+    if(found) return found;
+  }
+  return vs.find(v=>/^en/i.test(v.lang)) || null;
+}
+speechSynthesis.onvoiceschanged = ()=>{
+  enVoice = pickEnglishVoice();
+  voiceReady = true;
+};
+
+function speak(word){
+  try{
+    // 이전 발화 취소
+    speechSynthesis.cancel();
+    // 약간의 무음으로 첫소리 보강 (ZWSP + 쉼표)
+    const text = "\u200B, " + word;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    u.rate = 0.9;
+    u.pitch = 1.0;
+    u.volume = 1.0;
+    if(voiceReady && enVoice) u.voice = enVoice;
+    speechSynthesis.speak(u);
+  }catch(e){ /* 무시 */ }
+}
+
+// ===== 카드 렌더링 =====
+function makeCard({w,m}, idx){
+  const card = document.createElement('div');
+  card.className = 'card ' + (idx%2===0 ? 'toneA':'toneB');
+
+  const inner = document.createElement('div');
+  inner.className = 'inner';
+  inner.tabIndex = 0; // 키보드 접근성
+
+  const front = document.createElement('div');
+  front.className = 'side front';
+  front.textContent = w;
+
+  const back = document.createElement('div');
+  back.className = 'side back';
+  back.textContent = m;
+
+  inner.append(front, back);
+  card.append(inner);
+
+  // 클릭/키보드로 뒤집기 + 발음
+  card.addEventListener('click', ()=>{
+    card.classList.toggle('flipped');
+    speak(w);
+  });
+  inner.addEventListener('keydown', (e)=>{
+    if(e.key==='Enter' || e.key===' '){
+      e.preventDefault();
+      card.click();
+    }
+  });
+
+  return card;
+}
+
+data.forEach((item, i)=> document.body.appendChild(makeCard(item, i)));
+</script>
+</body>
+</html>
