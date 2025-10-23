@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>문장순서배열 - YouTuber 세트 (Glow)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap');
+
+:root{
+  --grad-a:#a8c0ff;
+  --grad-b:#fbc2eb;
+  --btn-a:#007bff;
+  --btn-b:#00c6ff;
+  --btn-ah:#0056b3;
+  --btn-bh:#0099cc;
+}
+
+*{box-sizing:border-box}
+body{
+  font-family:'Poppins','Pretendard',sans-serif;
+  background:linear-gradient(135deg,var(--grad-a),var(--grad-b));
+  min-height:100vh;margin:0;display:flex;justify-content:center;align-items:center;
+}
+.container{
+  position:relative;
+  width:90%;max-width:900px;
+  background:rgba(255,255,255,0.3);
+  backdrop-filter:blur(20px);
+  border-radius:25px;
+  box-shadow:0 8px 30px rgba(0,0,0,0.2);
+  padding:30px 40px;text-align:center;color:#003366;overflow:hidden;
+}
+h2{margin-bottom:15px;font-size:2em;font-weight:700;text-shadow:1px 1px 3px rgba(255,255,255,0.8)}
+.korean{font-size:1.6em;margin:20px 0;color:#002244;font-weight:700}
+.answer-area{
+  min-height:80px;border:3px dashed rgba(255,255,255,0.7);
+  border-radius:16px;padding:15px;margin:20px 0;font-size:1.5em;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:12px;color:#003;position:relative;
+}
+.wordbank{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:20px 0}
+.word{
+  background:linear-gradient(145deg,#ffffffcc,#e0e0e0aa);
+  border-radius:35px;padding:15px 25px;cursor:pointer;
+  box-shadow:0 5px 12px rgba(0,0,0,0.2);transition:transform .2s,box-shadow .3s;
+  font-size:1.3em;font-weight:700;user-select:none;
+}
+.word:hover{transform:scale(1.1);box-shadow:0 6px 16px rgba(0,0,0,0.3)}
+
+.controls{margin-top:15px}
+button{
+  margin:5px;padding:10px 20px;border:none;border-radius:12px;cursor:pointer;
+  background:linear-gradient(135deg,var(--btn-a),var(--btn-b));color:#fff;
+  font-size:1.1em;font-weight:700;transition:transform .2s,background .3s;
+  box-shadow:0 3px 8px rgba(0,0,0,0.2)
+}
+button:hover{background:linear-gradient(135deg,var(--btn-ah),var(--btn-bh));transform:scale(1.05)}
+
+.progress{margin:10px 0;height:12px;background:rgba(255,255,255,0.5);border-radius:6px;overflow:hidden}
+.progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#4facfe,#00f2fe);transition:width .4s}
+#counter{font-weight:700;font-size:1.2em;margin-top:5px}
+
+/* ✅ 정답 시 반짝(글로우) 애니메이션 */
+.correct-glow{
+  animation:glow .75s ease-out;
+}
+@keyframes glow{
+  0%{box-shadow:0 0 0 rgba(255,255,255,0)}
+  40%{box-shadow:0 0 24px 6px rgba(255,255,255,0.9)}
+  100%{box-shadow:0 0 0 rgba(255,255,255,0)}
+}
+.word.correct-glow{
+  background:linear-gradient(145deg,#ffffff,#f6f6f6);
+  text-shadow:0 0 8px rgba(255,255,255,0.9);
+}
+
+/* ✨ 스파클 파티클 */
+.sparkle{
+  position:absolute;width:10px;height:10px;pointer-events:none;
+  background:radial-gradient(circle, #fff 0%, #fff 40%, rgba(255,255,255,0) 70%);
+  filter:drop-shadow(0 0 6px rgba(255,255,255,0.9));
+  animation:sparklePop .8s ease-out forwards;
+  border-radius:50%;
+}
+@keyframes sparklePop{
+  0%{transform:translate(0,0) scale(.4);opacity:1}
+  70%{opacity:1}
+  100%{transform:translate(var(--dx),var(--dy)) scale(0.1);opacity:0}
+}
+
+/* 🥳 상단 토스트 */
+.toast{
+  position:absolute;top:14px;left:50%;transform:translateX(-50%) translateY(-20px);
+  background:rgba(0,0,0,0.7);color:#fff;padding:8px 14px;border-radius:999px;
+  font-weight:700;opacity:0;transition:opacity .25s, transform .25s;z-index:5
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:600px){
+  .word{font-size:1.1em;padding:10px 18px}
+  .korean{font-size:1.3em}
+}
+</style>
+</head>
+<body>
+<div class="container" id="container">
+  <div class="toast" id="toast">✅ 정답!</div>
+  <h2>문장순서배열 🧩</h2>
+  <div class="progress"><div class="progress-bar"></div></div>
+  <div id="counter"></div>
+  <div class="korean" id="question"></div>
+  <div class="answer-area" id="answer"></div>
+  <div class="wordbank" id="words"></div>
+  <div class="controls">
+    <button onclick="undo()">되돌리기</button>
+    <button onclick="clearAnswer()">지우기</button>
+    <button onclick="shuffleWords()">다시섞기</button>
+    <button onclick="checkAnswer()">정답확인</button>
+  </div>
+</div>
+
+<script>
+const data = [
+  {kor:"미나는 유명한 유튜버이다.", eng:"Mina is a famous YouTuber."},
+  {kor:"이곳은 사진 찍기 좋은 장소이다.", eng:"This is a good place for pictures."},
+  {kor:"그의 영상들은 재미없다.", eng:"His videos are not funny."},
+  {kor:"그녀는 인스타그램 사진에서 멋져 보인다.", eng:"She looks cool in her Instagram photos."},
+  {kor:"그들은 인기를 얻고 있다.", eng:"They are getting popular."},
+  {kor:"그는 유명한 유튜버였다.", eng:"He was a famous YouTuber."},
+  {kor:"그 노래는 틱톡에서 인기 있다.", eng:"The song is popular on Tiktok."},
+  {kor:"그의 영상들은 항상 재미있다.", eng:"His videos are always funny."},
+  {kor:"수민이는 그 영상에서 멋져 보인다.", eng:"Sumin looks good in the video."},
+  {kor:"톰의 브이로그는 점점 지루해지고 있다.", eng:"Tom's vlogs are getting boring."},
+  {kor:"이곳은 좋은 장소가 아니다.", eng:"This is not a good place."},
+  {kor:"그녀는 페이스북 인플루언서이다.", eng:"She is a Facebook influencer."},
+  {kor:"그는 인기가 없다.", eng:"He is not popular."}
+];
+
+let current=0;
+let userAnswer=[];
+let shuffledWords=[];
+
+const question=document.getElementById("question");
+const answer=document.getElementById("answer");
+const words=document.getElementById("words");
+const counter=document.getElementById("counter");
+const progressBar=document.querySelector(".progress-bar");
+const container=document.getElementById("container");
+const toast=document.getElementById("toast");
+
+function shuffle(array){ return array.sort(()=>Math.random()-0.5); }
+
+function loadQuestion(){
+  const item=data[current];
+  question.textContent=item.kor;
+  answer.innerHTML=""; userAnswer=[];
+  const wordList=item.eng.replace(/[.?!]/g,"").split(" ");
+  shuffledWords=shuffle([...wordList]);
+  words.innerHTML="";
+  shuffledWords.forEach(w=>{
+    const btn=document.createElement("div");
+    btn.className="word"; btn.textContent=w;
+    btn.onclick=()=>moveToAnswer(btn);
+    words.appendChild(btn);
+  });
+  counter.textContent=`${current+1} / ${data.length}`;
+  progressBar.style.width=`${(current/data.length)*100}%`;
+}
+
+function moveToAnswer(btn){
+  userAnswer.push(btn.textContent);
+  const ansBtn=document.createElement("div");
+  ansBtn.className="word";
+  ansBtn.textContent=btn.textContent;
+  ansBtn.onclick=()=>removeFromAnswer(ansBtn);
+  answer.appendChild(ansBtn);
+  btn.remove();
+}
+
+function removeFromAnswer(ansBtn){
+  const wordText=ansBtn.textContent;
+  const newBtn=document.createElement("div");
+  newBtn.className="word"; newBtn.textContent=wordText;
+  newBtn.onclick=()=>moveToAnswer(newBtn);
+  words.appendChild(newBtn);
+  // remove only one (the last same word) from userAnswer
+  const idx=userAnswer.lastIndexOf(wordText);
+  if(idx>-1) userAnswer.splice(idx,1);
+  ansBtn.remove();
+}
+
+function undo(){
+  const last=answer.lastChild;
+  if(last) removeFromAnswer(last);
+}
+
+function clearAnswer(){
+  userAnswer=[]; answer.innerHTML=""; loadQuestion();
+}
+
+function shuffleWords(){ loadQuestion(); }
+
+/* ✅ 정답 연출: 글로우 + 스파클 + 토스트 */
+function celebrate(){
+  // glow on each answer chip
+  [...answer.children].forEach(chip=>{
+    chip.classList.add('correct-glow');
+    setTimeout(()=>chip.classList.remove('correct-glow'),800);
+  });
+  // quick glow ring on answer area
+  answer.classList.add('correct-glow');
+  setTimeout(()=>answer.classList.remove('correct-glow'),800);
+
+  // toast
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'),700);
+
+  // sparkles
+  makeSparkles(answer, 12);
+}
+
+/* ✨ 스파클 생성 */
+function makeSparkles(target, count=10){
+  const rect=target.getBoundingClientRect();
+  const parentRect=container.getBoundingClientRect();
+  for(let i=0;i<count;i++){
+    const s=document.createElement('span');
+    s.className='sparkle';
+    const x = rect.left - parentRect.left + rect.width/2;
+    const y = rect.top - parentRect.top + rect.height/2;
+    const offsetX = (Math.random()-0.5)*rect.width*0.9;
+    const offsetY = (Math.random()-0.5)*rect.height*0.9;
+    s.style.left = `${x}px`;
+    s.style.top  = `${y}px`;
+    s.style.setProperty('--dx', `${offsetX}px`);
+    s.style.setProperty('--dy', `${offsetY}px`);
+    container.appendChild(s);
+    setTimeout(()=>s.remove(),900);
+  }
+}
+
+function checkAnswer(){
+  const correct=data[current].eng.replace(/[.?!]/g,"");
+  if(userAnswer.join(" ")===correct){
+    celebrate();
+    current++;
+    if(current<data.length){
+      setTimeout(()=>loadQuestion(),850);
+    }else{
+      progressBar.style.width="100%";
+      setTimeout(()=>alert("🎉 축하합니다! 모든 문장을 완성했습니다!"),300);
+    }
+  }else{
+    // 오답: 살짝 흔들기 효과 (선택)
+    answer.animate([{transform:'translateX(0)'},{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'translateX(0)'}],
+                   {duration:250});
+  }
+}
+
+loadQuestion();
+</script>
+</body>
+</html>

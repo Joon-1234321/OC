@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>단어매칭게임 · colorful</title>
+<style>
+:root{
+  --blue1:#4da3ff;
+  --blue2:#76c7ff;
+  --mint1:#4dd8b0;
+  --mint2:#7fffd4;
+  --bg1:#e6f4ff;
+  --bg2:#f7fbff;
+  --text:#0d1b2a;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;font-family:"Poppins","Noto Sans KR",sans-serif;
+  background:linear-gradient(135deg,var(--bg1),var(--bg2));
+  display:flex;flex-direction:column;align-items:center;min-height:100vh;
+  color:var(--text);
+}
+header{
+  display:flex;justify-content:space-between;align-items:center;
+  width:min(1100px,94vw);padding:12px 0 6px;
+}
+h1{margin:0;font-size:clamp(18px,3.2vw,24px);font-weight:800;color:#003366;}
+.info{display:flex;align-items:center;gap:12px;font-weight:700;}
+.badge{background:#fff;padding:6px 12px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.05);}
+.btn{
+  background:linear-gradient(135deg,#1e90ff,#53afff);color:#fff;border:none;
+  border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;
+  box-shadow:0 3px 8px rgba(0,0,0,.15);transition:transform .15s;
+}
+.btn:hover{transform:scale(1.05)}
+.grid{
+  width:min(1100px,94vw);display:grid;gap:12px;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:24px;
+}
+.card{
+  height:120px;border-radius:18px;cursor:pointer;position:relative;
+  box-shadow:0 6px 14px rgba(0,0,0,.12);
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  font-weight:900;font-size:clamp(18px,2.3vw,22px);
+  color:#fff;transition:transform .2s,box-shadow .3s;
+}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(0,0,0,.2);}
+.card.en{background:linear-gradient(150deg,var(--blue1),var(--blue2));}
+.card.kr{background:linear-gradient(150deg,var(--mint1),var(--mint2));color:#003;}
+.card.selected{outline:3px solid #fff;outline-offset:-3px;}
+.card.good{animation:goodGlow .5s ease;}
+.card.bad{animation:badShake .35s ease;}
+.card.matched{opacity:0;pointer-events:none;transform:scale(.9);}
+@keyframes goodGlow{
+  0%{box-shadow:0 0 0 0 rgba(255,255,255,0)}
+  40%{box-shadow:0 0 0 6px rgba(255,255,255,0.7)}
+  100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}
+}
+@keyframes badShake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-6px)}
+  40%{transform:translateX(6px)}
+  60%{transform:translateX(-4px)}
+  80%{transform:translateX(4px)}
+}
+/* 모달 */
+.modal{
+  position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.4);backdrop-filter:blur(3px);
+}
+.modal.show{display:flex;}
+.modal-card{
+  background:#fff;border-radius:18px;padding:24px;text-align:center;
+  box-shadow:0 16px 40px rgba(0,0,0,.25);
+}
+.modal h2{margin:6px 0 10px;font-size:24px;color:#003;}
+.modal p{margin:8px 0;color:#444;font-weight:700;}
+.modal .btn{width:100%;margin-top:10px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>단어매칭게임 · colorful</h1>
+  <div class="info">
+    <div class="badge">⏱️ <span id="timer">00:00.0</span></div>
+    <div class="badge">🥇 Best <span id="best">--:--.-</span></div>
+    <button class="btn" id="restart">다시 시작</button>
+  </div>
+</header>
+<main class="grid" id="grid"></main>
+
+<div class="modal" id="modal">
+  <div class="modal-card">
+    <h2>🎉 축하합니다!</h2>
+    <p>기록: <span id="final-time">00:00.0</span></p>
+    <p>최고 기록: <span id="final-best">--:--.-</span></p>
+    <button class="btn" id="play-again">다시 플레이</button>
+  </div>
+</div>
+
+<script>
+const PAIRS=[
+ {id:"famous",en:"famous",kr:"유명한"},
+ {id:"place",en:"place",kr:"장소"},
+ {id:"look",en:"look",kr:"보다; ~처럼 보이다"},
+ {id:"cool",en:"cool",kr:"멋진; 시원한"},
+ {id:"picture",en:"picture",kr:"사진; 그림"},
+ {id:"funny",en:"funny",kr:"재미있는; 웃기는"},
+ {id:"get",en:"get",kr:"얻다; 되다(become)"},
+ {id:"popular",en:"popular",kr:"인기 있는"},
+ {id:"boring",en:"boring",kr:"지루한"},
+ {id:"influencer",en:"influencer",kr:"인플루언서(영향력 있는 사람)"},
+ {id:"photo",en:"photo",kr:"사진"}
+];
+const grid=document.getElementById("grid");
+const timerEl=document.getElementById("timer");
+const bestEl=document.getElementById("best");
+const modal=document.getElementById("modal");
+const finalTime=document.getElementById("final-time");
+const finalBest=document.getElementById("final-best");
+const restart=document.getElementById("restart");
+const playAgain=document.getElementById("play-again");
+const LS_KEY="match_best_colorful";
+
+let deck=[],first=null,lock=false,matched=0,startTime=0,timerId=null,bestMs=loadBest();
+
+function buildDeck(){
+ deck=[];PAIRS.forEach(p=>{
+   deck.push(makeCard(p,"en"));
+   deck.push(makeCard(p,"kr"));
+ });
+ shuffle(deck);grid.innerHTML="";deck.forEach(c=>grid.appendChild(c));
+ matched=0;first=null;stopTimer();renderTime(0,timerEl);
+}
+function makeCard(p,type){
+ const c=document.createElement("div");
+ c.className="card "+type;
+ c.dataset.id=p.id;c.dataset.type=type;
+ c.textContent=type==="en"?p.en:p.kr;
+ c.addEventListener("click",()=>onPick(c));
+ return c;
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function onPick(c){
+ if(lock||c.classList.contains("matched"))return;
+ if(!timerId)startTimer();
+ if(first===c)return;
+ c.classList.add("selected");
+ if(!first){first=c;return;}
+ const match=first.dataset.id===c.dataset.id && first.dataset.type!==c.dataset.type;
+ if(match){
+   flashGood([first,c]);
+   setTimeout(()=>{first.classList.add("matched");c.classList.add("matched");
+     matched++;first=null;
+     if(matched===PAIRS.length){
+       stopTimer();
+       const total=performance.now()-startTime;
+       saveBest(total);
+       renderTime(total,finalTime);
+       finalBest.textContent=bestEl.textContent;
+       setTimeout(()=>modal.classList.add("show"),300);
+     }
+   },250);
+ }else{
+   flashBad([first,c]);lock=true;
+   setTimeout(()=>{first.classList.remove("selected");c.classList.remove("selected");first=null;lock=false;},450);
+ }
+}
+function flashGood(cs){cs.forEach(c=>{c.classList.add("good");setTimeout(()=>c.classList.remove("good"),500);});}
+function flashBad(cs){cs.forEach(c=>{c.classList.add("bad");setTimeout(()=>c.classList.remove("bad"),350);});}
+
+function startTimer(){
+ startTime=performance.now();stopTimer();
+ timerId=setInterval(()=>renderTime(performance.now()-startTime,timerEl),50);
+}
+function stopTimer(){if(timerId){clearInterval(timerId);timerId=null;}}
+function renderTime(ms,node){
+ const m=Math.floor(ms/60000),s=Math.floor((ms%60000)/1000),t=Math.floor((ms%1000)/100);
+ node.textContent=`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}.${t}`;
+}
+function saveBest(ms){
+ if(bestMs==null||ms<bestMs){bestMs=ms;localStorage.setItem(LS_KEY,String(ms));}
+ renderTime(bestMs,bestEl);
+}
+function loadBest(){
+ const v=localStorage.getItem(LS_KEY);if(!v){bestEl.textContent="--:--.-";return null;}
+ const ms=Number(v);renderTime(ms,bestEl);return ms;
+}
+
+restart.onclick=()=>{modal.classList.remove("show");buildDeck();}
+playAgain.onclick=()=>{modal.classList.remove("show");buildDeck();}
+buildDeck();
+</script>
+</body>
+</html>
