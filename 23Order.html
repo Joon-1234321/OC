@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>문장순서배열 - 클릭 이동 + 반짝 효과 + 큰 글씨</title>
+<style>
+  body{
+    margin:0; min-height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#dff1ff,#f0ffe3);
+    font-family:"Arial Rounded MT Bold",system-ui,-apple-system,sans-serif;
+    font-weight:bold;
+  }
+  .app{
+    width:min(1000px,96%);
+    background:rgba(255,255,255,0.9);
+    padding:40px;
+    border-radius:30px;
+    box-shadow:0 10px 25px rgba(0,0,0,.2);
+  }
+  .top{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:15px; color:#0b4378; font-weight:900;
+    font-size:1.3rem;
+  }
+  .kr{
+    margin:10px 0 20px; 
+    font-size:1.6rem; 
+    color:#222;
+  }
+  .en-prompt{
+    margin:10px 0 18px; 
+    font-size:1.4rem; 
+    color:#444;
+  }
+  .zone-label{
+    font-size:1.3rem; 
+    color:#1a1a1a; 
+    margin:10px 0 8px;
+  }
+  .drop,.bank{
+    display:flex; flex-wrap:wrap; gap:15px;
+    min-height:80px; padding:18px;
+    border:3px dashed #7aaaff; border-radius:20px; background:#ffffffc9;
+    justify-content:center;
+  }
+  .bank{ margin-top:10px; }
+  .chip{
+    user-select:none;
+    background:#eaf3ff;
+    border:3px solid #5b9bff;
+    border-radius:999px;
+    padding:14px 20px;
+    font-size:1.4rem;
+    cursor:pointer;
+    transition:transform 0.15s ease;
+    font-weight:900;
+  }
+  .chip:hover{ transform:scale(1.07); }
+
+  /* 반짝 효과 */
+  .sparkle {
+    animation: sparkle 0.8s ease-in-out forwards;
+  }
+  @keyframes sparkle {
+    0% { box-shadow: 0 0 0px #fff; transform: scale(1);}
+    25% { box-shadow: 0 0 15px #fff, 0 0 25px gold; transform: scale(1.15);}
+    50% { box-shadow: 0 0 25px #ffd700, 0 0 40px #fff; transform: scale(1.1);}
+    75% { box-shadow: 0 0 15px #fff, 0 0 25px gold; transform: scale(1.15);}
+    100% { box-shadow: 0 0 0px transparent; transform: scale(1);}
+  }
+
+  .controls{
+    display:flex; gap:15px; margin-top:25px; justify-content:center; flex-wrap:wrap;
+  }
+  button{
+    border:none; border-radius:15px; padding:14px 24px;
+    background:#2f87ff; color:#fff; font-weight:900; cursor:pointer; 
+    font-size:1.3rem; letter-spacing:0.5px;
+  }
+  button.secondary{ background:#5f6b7a; }
+  .feedback{ 
+    min-height:1.8em; 
+    text-align:center; 
+    margin-top:20px; 
+    font-weight:900; 
+    font-size:1.4rem;
+  }
+  .ok{ color:#089b5a; } 
+  .bad{ color:#d63031; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="top">
+    <div id="progress">문항 1 / 13</div>
+    <div id="tip">단어 칩을 클릭해서 문장을 완성하세요.</div>
+  </div>
+
+  <div class="kr" id="kr"></div>
+  <div class="en-prompt">영어 문장을 완성하세요:</div>
+
+  <div class="zone-label">✅ 정답 영역</div>
+  <div id="drop" class="drop"></div>
+
+  <div class="zone-label">💬 단어 은행</div>
+  <div id="bank" class="bank"></div>
+
+  <div class="controls">
+    <button id="checkBtn">정답 확인</button>
+    <button class="secondary" id="shuffleBtn">다시섞기</button>
+    <button class="secondary" id="resetBtn">비우기</button>
+  </div>
+
+  <div id="feedback" class="feedback"></div>
+</div>
+
+<script>
+/* ====== 문장 데이터 ====== */
+const items = [
+  { kr:"나는 페이스북에 가입했다.", en:"I joined Facebook." },
+  { kr:"그녀는 DM을 보낼 것이다.", en:"She will send a DM." },
+  { kr:"나는 댓글을 쓰고 있다.", en:"I am writing a comment." },
+  { kr:"200명이 그녀의 채널을 구독하고 있다.", en:"200 people are subscribing to her channel." },
+  { kr:"그는 트위터에서 나를 팔로우했다.", en:"He followed me on Twitter." },
+  { kr:"많은 한국인들이 틱톡에 가입했다.", en:"Many Koreans joined TikTok." },
+  { kr:"민호는 영상을 공유할 것이다.", en:"Minho will share a video." },
+  { kr:"나는 인스타그램에 스토리를 올리고 있다.", en:"I am posting a story on Instagram." },
+  { kr:"그녀는 30개의 채널을 구독했다.", en:"She subscribed to 30 channels." },
+  { kr:"이 계정은 500명의 팔로워를 가지고 있다.", en:"This account has 500 followers." },
+  { kr:"나는 영상을 공유한다.", en:"I share videos." },
+  { kr:"많은 사람들이 내 계정을 팔로우했다.", en:"Many people followed my account." },
+  { kr:"많은 사람들이 DM을 보낼 것이다.", en:"Many people will send DMs." }
+];
+
+let idx = 0;
+const $kr = document.getElementById('kr');
+const $drop = document.getElementById('drop');
+const $bank = document.getElementById('bank');
+const $progress = document.getElementById('progress');
+const $feedback = document.getElementById('feedback');
+const $checkBtn = document.getElementById('checkBtn');
+const $shuffleBtn = document.getElementById('shuffleBtn');
+const $resetBtn = document.getElementById('resetBtn');
+
+function shuffle(array){
+  for(let i=array.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [array[i],array[j]]=[array[j],array[i]];
+  }
+  return array;
+}
+
+function clearChildren(el){ while(el.firstChild) el.removeChild(el.firstChild); }
+
+function createChip(text){
+  const chip=document.createElement('div');
+  chip.className='chip';
+  chip.textContent=text;
+  chip.addEventListener('click',()=>{
+    if(chip.parentElement===$bank){
+      $drop.appendChild(chip);
+    }else{
+      $bank.appendChild(chip);
+    }
+  });
+  return chip;
+}
+
+function loadSentence(){
+  const item=items[idx];
+  $progress.textContent=`문항 ${idx+1} / ${items.length}`;
+  $kr.textContent=item.kr;
+  $feedback.textContent='';
+  clearChildren($drop);
+  clearChildren($bank);
+  const words=item.en.split(' ');
+  const shuffled=shuffle([...words]);
+  shuffled.forEach(w=>$bank.appendChild(createChip(w)));
+}
+
+function currentAnswer(){
+  return [...$drop.children].map(c=>c.textContent).join(' ');
+}
+
+function sparkleChips(){
+  [...$drop.children].forEach((chip,i)=>{
+    setTimeout(()=>chip.classList.add('sparkle'), i*80);
+    setTimeout(()=>chip.classList.remove('sparkle'), 800 + i*80);
+  });
+}
+
+function checkAnswer(){
+  const user=currentAnswer().trim();
+  const correct=items[idx].en.trim();
+  if(user===correct){
+    $feedback.textContent="✅ 정답입니다!";
+    $feedback.className="feedback ok";
+    sparkleChips();
+    setTimeout(()=>{
+      idx++;
+      if(idx<items.length) loadSentence();
+      else {
+        document.querySelector('.app').innerHTML=
+          `<h1 style="text-align:center;font-size:2.2rem;color:#1aa370;">🎉 모든 문장을 완료했습니다! 잘했어요! 🎉</h1>`;
+      }
+    },1000);
+  }else{
+    $feedback.textContent="❌ 오답입니다. 순서를 다시 확인해 보세요.";
+    $feedback.className="feedback bad";
+  }
+}
+
+function shuffleBank(){
+  const chips=[...$bank.children].map(c=>c.textContent);
+  clearChildren($bank);
+  shuffle(chips).forEach(w=>$bank.appendChild(createChip(w)));
+}
+
+function resetDrop(){
+  const chips=[...$drop.children];
+  chips.forEach(ch=>$bank.appendChild(ch));
+  $feedback.textContent="";
+  $feedback.className="feedback";
+}
+
+$checkBtn.addEventListener('click',checkAnswer);
+$shuffleBtn.addEventListener('click',shuffleBank);
+$resetBtn.addEventListener('click',resetDrop);
+
+loadSentence();
+</script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNS Typing Practice</title>
+<style>
+  body {
+    font-family: "Arial Rounded MT Bold", system-ui, -apple-system, sans-serif;
+    background: linear-gradient(135deg, #dff1ff, #f0ffe3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    text-align: center;
+  }
+  .card {
+    background: rgba(255,255,255,0.8);
+    padding: 30px 40px;
+    border-radius: 24px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    max-width: 650px;
+    width: 90%;
+  }
+  .progress {
+    font-size: 0.95rem; color: #0b4378; font-weight: 700;
+    margin-bottom: 10px;
+  }
+  h2 { font-size: 1.1rem; margin: 8px 0 12px; color: #333; }
+  .sentence {
+    font-size: 1.6rem;
+    margin: 12px 0 22px;
+  }
+  .input-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+  }
+  input[type="text"]{
+    font-size: 1.25rem;
+    padding: 10px 12px;
+    width: 70%;
+    border-radius: 10px;
+    border: 2px solid #9bb6ff;
+    outline: none;
+    text-align: center;
+  }
+  button{
+    padding: 10px 16px;
+    font-size: 1.05rem;
+    border: none;
+    border-radius: 10px;
+    background: #37a1ff;
+    color: #fff;
+    cursor: pointer;
+  }
+  .feedback{ margin-top: 14px; font-weight: 800; min-height: 1.4em; }
+  .correct{ color:#0a9c57; } 
+  .wrong{ color:#e53935; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="progress" id="progress">문항 1 / 13</div>
+  <h2 id="translation"></h2>
+  <div class="sentence" id="sentence"></div>
+  <div class="input-row">
+    <input type="text" id="answer" placeholder="빈칸(_____)에 들어갈 말을 입력하세요" autocomplete="off" />
+    <button id="checkBtn">확인</button>
+  </div>
+  <div class="feedback" id="feedback"></div>
+</div>
+
+<script>
+const data = [
+  {kr: "나는 페이스북에 가입했다.", en: "I (joined) Facebook.", answer: "joined"},
+  {kr: "그녀는 DM을 보낼 것이다.", en: "She will (send) a DM.", answer: "send"},
+  {kr: "나는 댓글을 쓰고 있다.", en: "I am (writing) a comment.", answer: "writing"},
+  {kr: "200명이 그녀의 채널을 구독하고 있다.", en: "200 people are (subscribing to) her channel.", answer: "subscribing to"},
+  {kr: "그는 트위터에서 나를 팔로우했다.", en: "He (followed) me on Twitter.", answer: "followed"},
+  {kr: "많은 한국인들이 틱톡에 가입했다.", en: "Many Koreans (joined) TikTok.", answer: "joined"},
+  {kr: "민호는 영상을 공유할 것이다.", en: "Minho will (share) a video.", answer: "share"},
+  {kr: "나는 인스타그램에 스토리를 올리고 있다.", en: "I am (posting) a story on Instagram.", answer: "posting"},
+  {kr: "그녀는 30개의 채널을 구독했다.", en: "She (subscribed to) 30 channels.", answer: "subscribed to"},
+  {kr: "이 계정은 500명의 팔로워를 가지고 있다.", en: "This (account) has 500 followers.", answer: "account"},
+  {kr: "나는 영상을 공유한다.", en: "I (share) videos.", answer: "share"},
+  {kr: "많은 사람들이 내 계정을 팔로우했다.", en: "Many people (followed) my account.", answer: "followed"},
+  {kr: "많은 사람들이 DM을 보낼 것이다.", en: "Many people (will send) DMs.", answer: "will send"}
+];
+
+let current = 0;
+const $kr = document.getElementById("translation");
+const $en = document.getElementById("sentence");
+const $answer = document.getElementById("answer");
+const $feedback = document.getElementById("feedback");
+const $progress = document.getElementById("progress");
+const $checkBtn = document.getElementById("checkBtn");
+
+function normalize(s){
+  return s.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function loadSentence() {
+  const item = data[current];
+  $progress.textContent = `문항 ${current + 1} / ${data.length}`;
+  $kr.textContent = item.kr;
+  // ( ) 부분을 빈칸(_____)으로 대체
+  $en.innerHTML = item.en.replace(/\(.*?\)/, "_____");
+  $answer.value = "";
+  $feedback.textContent = "";
+  $feedback.className = "feedback";
+  $answer.focus();
+}
+
+function goNextOrFinish() {
+  current++;
+  if (current < data.length) {
+    loadSentence();
+  } else {
+    document.querySelector(".card").innerHTML =
+      `<div class="progress">문항 ${data.length} / ${data.length}</div>
+       <h2>🎉 모든 문장을 완료했습니다! 잘했어요!</h2>`;
+  }
+}
+
+function checkAnswer() {
+  const user = normalize($answer.value);
+  const correct = normalize(data[current].answer);
+  if (user === correct) {
+    $feedback.textContent = "✅ 정답입니다!";
+    $feedback.className = "feedback correct";
+    setTimeout(goNextOrFinish, 600);
+  } else {
+    $feedback.textContent = "❌ 오답입니다. 다시 시도하세요.";
+    $feedback.className = "feedback wrong";
+  }
+}
+
+$checkBtn.addEventListener("click", checkAnswer);
+
+// Enter 키로도 다음 문항
+$answer.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    checkAnswer();
+  }
+});
+
+loadSentence();
+</script>
+
+</body>
+</html>

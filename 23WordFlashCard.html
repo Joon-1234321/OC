@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SNS Vocabulary Flashcards</title>
+<style>
+  body {
+    font-family: "Arial Rounded MT Bold", sans-serif;
+    background: linear-gradient(135deg, #d9f1ff, #e9ffe6);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 30px;
+    gap: 20px;
+  }
+  .card {
+    width: 200px;
+    height: 140px;
+    perspective: 1000px;
+    cursor: pointer;
+  }
+  .inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+  }
+  .card.flipped .inner {
+    transform: rotateY(180deg);
+  }
+  .front, .back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+  .front:nth-child(even) { background: #37a1ff; }
+  .front:nth-child(odd) { background: #32c896; }
+  .back {
+    background: #0c1f4a;
+    transform: rotateY(180deg);
+    font-size: 1.3rem;
+    padding: 10px;
+  }
+</style>
+</head>
+<body>
+
+<script>
+const cards = [
+  {word: "join", meaning: "(그룹·채널 등에) 가입하다"},
+  {word: "send", meaning: "보내다"},
+  {word: "DM", meaning: "다이렉트 메시지 보내다"},
+  {word: "write", meaning: "(글·댓글 등을) 쓰다"},
+  {word: "subscribe to", meaning: "(채널을) 구독하다"},
+  {word: "follow", meaning: "(계정·사람을) 팔로우하다, 따르다"},
+  {word: "share", meaning: "(게시물·사진 등을) 공유하다"},
+  {word: "post", meaning: "(글·사진 등을) 게시하다"},
+  {word: "channel", meaning: "채널"},
+  {word: "account", meaning: "계정"},
+  {word: "comment", meaning: "댓글 달다"},
+];
+
+cards.forEach((c, i) => {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <div class="inner">
+      <div class="front">${c.word}</div>
+      <div class="back">${c.meaning}</div>
+    </div>
+  `;
+  card.addEventListener("click", () => {
+    speakWord(c.word);
+    card.classList.toggle("flipped");
+  });
+  document.body.appendChild(card);
+});
+
+function speakWord(text) {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance("\u200B" + text + ",");
+    utter.lang = "en-US";
+    utter.rate = 0.9;
+    utter.pitch = 1.0;
+    speechSynthesis.speak(utter);
+  }
+}
+</script>
+
+</body>
+</html>
