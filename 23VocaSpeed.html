@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>단어 스피드퀴즈 — 라운드별 출제(뜻 전부→스펠 전부…)</title>
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Malgun Gothic,sans-serif;background:#0b1220;color:#e5e7eb}
+  header{position:sticky;top:0;background:#0b1220cc;border-bottom:1px solid #ffffff22;backdrop-filter:blur(6px);z-index:10}
+  .wrap{max-width:980px;margin:0 auto;padding:12px 14px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .stat{background:#ffffff10;border:1px solid #ffffff22;border-radius:10px;padding:6px 10px}
+  button,select,input{background:#111a2e;border:1px solid #ffffff22;color:#e5e7eb;border-radius:10px;padding:8px 10px;font-weight:800;cursor:pointer}
+  button.primary{background:#2b3a68;border-color:#2b3a68}
+  main{max-width:980px;margin:12px auto;padding:0 14px}
+  .card{background:linear-gradient(180deg,#0e1630,#0b1220);border:1px solid #ffffff22;border-radius:14px;padding:18px;min-height:170px;box-shadow:0 10px 30px #0007}
+  .q-meaning{font-size:26px;font-weight:900;color:#cffafe}
+  .muted{color:#94a3b8}
+  .inputrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  #answer{flex:1;background:#0b1326;border:1px solid #ffffff24;border-radius:10px;padding:12px 14px;color:#e5e7eb;font-weight:900;font-size:18px}
+  details{margin-top:12px;background:#0b1326;border:1px solid #ffffff18;border-radius:12px;overflow:hidden}
+  summary{padding:10px 12px;font-weight:900;cursor:pointer}
+  textarea{width:100%;min-height:120px;background:#0f172a;color:#e5e7eb;border:1px solid #ffffff22;border-radius:10px;padding:10px;font-weight:700}
+  .timerbar{height:10px;background:#ffffff14;border:1px solid #ffffff1f;border-radius:999px;overflow:hidden;margin-bottom:10px}
+  .timerbar>div{height:100%;background:#7dd3fc;width:100%}
+  .shake{animation:shake .22s linear}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .pill{background:#ffffff10;border:1px solid #ffffff22;border-radius:999px;padding:6px 10px;font-weight:800}
+  .list{max-height:220px;overflow:auto;background:#0b1220;border:1px solid #ffffff22;border-radius:10px;padding:8px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="row" style="justify-content:space-between">
+      <div style="font-weight:900">⚡ 단어 스피드퀴즈 — 라운드별 출제(뜻 전부→스펠 전부…)</div>
+      <div class="row">
+        <div class="stat">점수 <b id="score">0</b></div>
+        <div class="stat">진행 <b id="progress">0/0</b></div>
+        <div class="stat">남은시간 <b id="time">60</b>s</div>
+        <div class="pill">총 단어 <b id="totalItems">0</b>개</div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button id="startBtn" class="primary">▶ 시작</button>
+      <button id="previewBtn">👁 미리보기</button>
+      <button id="skipBtn">⏭ 스킵</button>
+      <button id="restartBtn">⟲ 재시작</button>
+      <label>라운드
+        <select id="roundTime"><option value="45">45s</option><option value="60" selected>60s</option><option value="90">90s</option></select>
+      </label>
+      <label>이번 라운드 출제
+        <select id="startMode">
+          <option value="e2k" selected>뜻 쓰기(영→한)</option>
+          <option value="k2e">스펠 쓰기(한→영)</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="ttsToggle" checked> 정답 TTS(영어만)</label>
+      <label><input type="checkbox" id="countToggle" checked> 3-2-1</label>
+      <button id="peekBtn">📝 데이터 미리보기</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="timerbar"><div id="bar"></div></div>
+
+  <div class="card" id="card">
+    <div class="q-meaning" id="meaning">문제가 여기에 표시됩니다</div>
+    <div class="muted" id="instruction">이번 라운드는 선택한 모드(뜻쓰기/스펠쓰기)로 <b>전체 문항</b>이 출제됩니다.</div>
+    <div class="inputrow">
+      <input id="answer" type="text" autocomplete="off" placeholder="여기에 답 입력…" />
+      <button id="submitBtn" class="primary">확인</button>
+    </div>
+    <div id="hint" class="muted" style="display:none"></div>
+  </div>
+
+  <details>
+    <summary>📚 단어 편집 — 복수정답 규칙: <code>영어1|영어2 = 뜻1|뜻2</code> (쉼표도 구분자 / <b>= 없이 공백만으로도 OK</b>)</summary>
+    <div style="padding:10px; display:grid; gap:10px">
+      <textarea id="bank">join 가입하다
+send 보내다
+DM 다이렉트 메시지, 다이렉트 메세지
+write 쓰다, 기록하다
+subscribe to 구독하다
+follow 팔로우하다, 따르다
+share 공유하다
+post 게시하다
+channel 채널
+account 계정, 계좌
+comment 댓글, 논평</textarea>
+      <div class="row">
+        <button id="applyBtn" class="primary">단어 적용</button>
+        <div class="muted">예: <code>color|colour=색</code> / <code>USB|flash drive=USB|유에스비</code></div>
+      </div>
+    </div>
+  </details>
+
+  <details>
+    <summary>🧪 파싱 결과(진단용)</summary>
+    <div class="list" id="debugList"></div>
+  </details>
+</main>
+
+<script>
+(function(){
+  // ===== DOM =====
+  var meaning=document.getElementById('meaning');
+  var instruction=document.getElementById('instruction');
+  var answer=document.getElementById('answer');
+  var submitBtn=document.getElementById('submitBtn');
+  var skipBtn=document.getElementById('skipBtn');
+  var startBtn=document.getElementById('startBtn');
+  var restartBtn=document.getElementById('restartBtn');
+  var previewBtn=document.getElementById('previewBtn');
+  var countToggle=document.getElementById('countToggle');
+  var ttsToggle=document.getElementById('ttsToggle');
+  var roundTimeSel=document.getElementById('roundTime');
+  var startModeSel=document.getElementById('startMode');
+  var bankTA=document.getElementById('bank');
+  var applyBtn=document.getElementById('applyBtn');
+  var scoreEl=document.getElementById('score');
+  var progressEl=document.getElementById('progress');
+  var timeEl=document.getElementById('time');
+  var bar=document.getElementById('bar');
+  var card=document.getElementById('card');
+  var hint=document.getElementById('hint');
+  var totalItemsEl=document.getElementById('totalItems');
+  var debugList=document.getElementById('debugList');
+  var peekBtn=document.getElementById('peekBtn');
+
+  // ===== STATE =====
+  var items=[], queue=[];
+  var idx=0;
+  var score=0, solved=0, missed=0;
+  var timer=null, totalSec=60, leftSec=60;
+  var running=false;
+  var nextRoundMode='e2k'; // round toggles after each end
+
+  // ===== helpers (robust parsing) =====
+  function splitAlts(s){
+    var parts = String(s||'').split(/[|,]/);
+    var out = [];
+    for(var i=0;i<parts.length;i++){
+      var t = String(parts[i]).trim();
+      if(t) out.push(t);
+    }
+    return out;
+  }
+  function normalizeTextArea(raw){
+    return String(raw||'')
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .replace(/\u2028/g, '\n')
+      .replace(/\u2029/g, '\n');
+  }
+  function looksKorean(s){ return /[가-힣]/.test(String(s||'')); }
+
+  // Smart split: if '=' absent, split at first Hangul boundary.
+  function splitEngKorSmart(line){
+    var i=0, s=String(line);
+    for(i=0;i<s.length;i++){
+      var ch=s.charAt(i);
+      if(/[가-힣]/.test(ch)){ break; }
+    }
+    if(i>0 && i<s.length){
+      var left=s.slice(0,i).trim();
+      var right=s.slice(i).trim();
+      if(left){ return {left:left, right:right}; }
+    }
+    // fallback: first whitespace split
+    var m = s.match(/^(.+?)\s+(.+)$/);
+    if(m) return {left:m[1].trim(), right:m[2].trim()};
+    return {left:s.trim(), right:s.trim()};
+  }
+
+  function parseBank(){
+    items=[];
+    try{
+      var raw = normalizeTextArea(bankTA.value);
+      var lines = raw.split('\n');
+      for(var i=0;i<lines.length;i++){
+        var line = String(lines[i]||'').trim();
+        if(!line) continue;
+
+        var eq = line.indexOf('=');
+        var left, right;
+        if(eq>0){
+          left = line.slice(0,eq).trim();
+          right = line.slice(eq+1).trim();
+        } else {
+          var pair = splitEngKorSmart(line);
+          left = pair.left; right = pair.right;
+        }
+
+        var engs = splitAlts(left);
+        var kors = splitAlts(right);
+        if(!engs.length) continue;
+
+        var engPrim = engs[0];
+        var korPrim = kors.length ? kors[0] : engPrim;
+        var engAlts = engs.slice(1);
+        var korAlts = kors.slice(1);
+
+        items.push({ engPrim:engPrim, korPrim:korPrim, engAlts:engAlts, korAlts:korAlts });
+      }
+    }catch(e){
+      items=[]; console.log('parse error', e);
+    }
+    totalItemsEl.textContent = String(items.length);
+    renderDebug();
+  }
+
+  function renderDebug(){
+    debugList.innerHTML='';
+    if(!items.length){ debugList.textContent='항목 없음'; return; }
+    for(var i=0;i<items.length;i++){
+      var it=items[i];
+      var d=document.createElement('div');
+      d.textContent=(i+1)+'. '+it.engPrim+' ['+(it.engAlts.join(' | ')||'-')+'] — '+it.korPrim+' ['+(it.korAlts.join(' | ')||'-')+']';
+      debugList.appendChild(d);
+    }
+  }
+
+  function shuffle(arr){
+    for(var i=arr.length-1;i>0;i--){
+      var j=Math.floor(Math.random()*(i+1));
+      var t=arr[i]; arr[i]=arr[j]; arr[j]=t;
+    }
+  }
+
+  // Build queue with ONE mode for the whole round
+  function buildQueue(roundMode){
+    queue = items.slice(0);
+    shuffle(queue);
+    for(var i=0;i<queue.length;i++){
+      queue[i] = Object.assign({}, queue[i], { mode: roundMode });
+    }
+  }
+
+  function normalizeEng(s){ return String(s||'').toLowerCase().trim(); }
+  function normalizeKor(s){ return String(s||'').replace(/\s+/g,'').trim(); }
+  function anyMatchEng(input, prim, alts){
+    var v = normalizeEng(input);
+    if(v===normalizeEng(prim)) return true;
+    for(var i=0;i<alts.length;i++){ if(v===normalizeEng(alts[i])) return true; }
+    return false;
+  }
+  function anyMatchKor(input, prim, alts){
+    var v = normalizeKor(input);
+    if(v===normalizeKor(prim)) return true;
+    for(var i=0;i<alts.length;i++){ if(v===normalizeKor(alts[i])) return true; }
+    return false;
+  }
+
+  // TTS (English only on correct)
+  function speakEnglish(word){
+    try{
+      if(!ttsToggle.checked) return;
+      if(!('speechSynthesis' in window)) return;
+      try{ window.speechSynthesis.cancel(); }catch(e){}
+      try{ window.speechSynthesis.resume(); }catch(e){}
+      var u = new SpeechSynthesisUtterance('\u200B,' + String(word||''));
+      u.rate=0.9; u.pitch=1; u.lang='en-US';
+      var vs = speechSynthesis.getVoices();
+      for(var i=0;i<vs.length;i++){ if(/en|US|UK/i.test(vs[i].lang)){ u.voice=vs[i]; break; } }
+      u.onerror=function(){};
+      speechSynthesis.speak(u);
+    }catch(e){}
+  }
+
+  // UI & flow
+  function setProgress(){ progressEl.textContent = String(idx+1) + '/' + String(queue.length); scoreEl.textContent = String(score); }
+
+  function showQ(){
+    if(idx>=queue.length){ endRound(); return; }
+    var q = queue[idx];
+    if(q.mode==='k2e'){
+      meaning.textContent = q.korPrim;
+      instruction.innerHTML = "<b>스펠링 쓰기</b> — 한국어 뜻을 보고 <b>영어</b>를 입력하세요.";
+      answer.placeholder = "영어 스펠링…";
+    }else{
+      meaning.textContent = q.engPrim;
+      instruction.innerHTML = "<b>뜻 쓰기</b> — 영어를 보고 <b>한국어</b>를 입력하세요.";
+      answer.placeholder = "한국어 뜻…";
+    }
+    hint.style.display='none';
+    answer.value='';
+    answer.focus();
+    setProgress();
+  }
+
+  function maskEng(s){
+    s=String(s||''); if(s.length<=2) return s;
+    var inner=s.slice(1,s.length-1).replace(/[A-Za-z]/g,'_');
+    return s.charAt(0)+inner+s.charAt(s.length-1);
+  }
+
+  function countdown3(next){
+    if(!countToggle.checked){ next(); return; }
+    var overlay=document.createElement('div');
+    overlay.style.position='fixed'; overlay.style.inset='0';
+    overlay.style.display='grid'; overlay.style.placeItems='center';
+    overlay.style.background='rgba(0,0,0,.45)'; overlay.style.zIndex='9999';
+    var label=document.createElement('div');
+    label.style.fontSize='64px'; label.style.fontWeight='900';
+    label.style.padding='12px 22px'; label.style.borderRadius='16px';
+    label.style.background='rgba(255,255,255,0.08)'; label.style.border='1px solid rgba(255,255,255,0.25)';
+    label.textContent='3'; overlay.appendChild(label); document.body.appendChild(overlay);
+    var n=3;
+    var id=setInterval(function(){
+      n--;
+      if(n>0){ label.textContent=String(n); }
+      else if(n===0){ label.textContent='Start!'; }
+      else{ clearInterval(id); if(overlay.parentNode) overlay.parentNode.removeChild(overlay); next(); }
+    },1000);
+    setTimeout(function(){ try{ next(); }catch(e){} }, 3800);
+  }
+
+  function startRound(){
+    if(running) return;
+    parseBank();
+    // decide this round's mode: from select; next time toggle
+    var modeWanted = startModeSel.value || nextRoundMode;
+    buildQueue(modeWanted);
+    nextRoundMode = (modeWanted==='e2k') ? 'k2e' : 'e2k'; // toggle for next round
+
+    idx=0; score=0; solved=0; missed=0;
+    totalSec=parseInt(roundTimeSel.value,10)||60; leftSec=totalSec;
+    timeEl.textContent=String(leftSec); bar.style.width='100%';
+    running=true; startBtn.disabled=true;
+
+    countdown3(function(){
+      showQ();
+      if(timer) clearInterval(timer);
+      timer=setInterval(function(){
+        if(!running) return;
+        leftSec--; timeEl.textContent=String(leftSec);
+        var w=Math.max(0,(leftSec/totalSec)*100); bar.style.width=String(w)+'%';
+        if(leftSec<=0){ endRound(); }
+      },1000);
+    });
+  }
+
+  function endRound(){
+    running=false; startBtn.disabled=false;
+    if(timer){ clearInterval(timer); timer=null; }
+    meaning.textContent='라운드 종료! 점수: '+String(score)+' / 맞힌: '+String(solved)+' · 스킵/오답: '+String(missed);
+    var nextLabel = (nextRoundMode==='e2k') ? '다음 라운드: 뜻 쓰기(영→한)' : '다음 라운드: 스펠 쓰기(한→영)';
+    instruction.textContent= nextLabel + ' — ▶ 시작을 누르세요.';
+  }
+
+  function submit(){
+    if(!running) return;
+    var v=String(answer.value||'').trim(); if(!v) return;
+    var q=queue[idx];
+    var correct=false;
+
+    if(q.mode==='k2e'){
+      correct = anyMatchEng(v, q.engPrim, q.engAlts);
+    }else{
+      correct = anyMatchKor(v, q.korPrim, q.korAlts);
+    }
+
+    if(correct){
+      score+=1; solved+=1;
+      if(q.mode==='k2e'){ speakEnglish(q.engPrim); }
+      idx+=1; showQ();
+    }else{
+      card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+      hint.style.display='block';
+      if(q.mode==='k2e'){
+        hint.textContent='힌트(영어): '+maskEng(q.engPrim);
+      }else{
+        var korAll=[q.korPrim].concat(q.korAlts||[]);
+        hint.textContent='힌트(한국어): '+korAll.join(' / ');
+      }
+    }
+  }
+
+  function skip(){
+    if(!running) return;
+    missed+=1; idx+=1; showQ();
+  }
+
+  function preview(){
+    parseBank();
+    buildQueue(startModeSel.value || 'e2k');
+    idx=0; showQ();
+  }
+
+  function peek(){ parseBank(); alert('현재 파싱된 항목 수: '+items.length+'개'); }
+
+  // EVENTS
+  startBtn.addEventListener('click', startRound);
+  restartBtn.addEventListener('click', function(){ running=false; if(timer){clearInterval(timer);timer=null;} startRound(); });
+  submitBtn.addEventListener('click', submit);
+  answer.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); submit(); } });
+  skipBtn.addEventListener('click', skip);
+  previewBtn.addEventListener('click', preview);
+  applyBtn.addEventListener('click', function(){ parseBank(); alert('단어 리스트 적용 완료 ('+items.length+'개)'); });
+  peekBtn.addEventListener('click', peek);
+
+  // INIT
+  parseBank();
+  document.getElementById('progress').textContent='0/'+String(items.length||0);
+})();
+</script>
+</body>
+</html>
