@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SNS Vocabulary 매칭게임 (컬러 카드 버전)</title>
+<style>
+  :root{
+    --bg1:#eaf6ff; --bg2:#cfeaff; --ink:#0f172a;
+    --word-bg:#dbeafe;    /* 영어 카드 배경 */
+    --word-border:#3b82f6;
+    --meaning-bg:#dcfce7; /* 뜻 카드 배경 */
+    --meaning-border:#16a34a;
+    --accent:#38bdf8;
+    --danger:#ef4444;
+  }
+  html,body{
+    height:100%; margin:0;
+    font-family:"Noto Sans KR",system-ui;
+    color:var(--ink);
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));
+  }
+  .wrap{max-width:1100px; margin:0 auto; padding:20px 16px 40px;}
+  h1{margin:0; font-weight:800;}
+  .subtitle{opacity:.85; font-weight:600;}
+  .panel{
+    margin-top:12px; display:flex; flex-wrap:wrap; gap:12px; align-items:center;
+    background:#ffffffb3; border-radius:16px; padding:10px 12px; backdrop-filter:blur(6px);
+  }
+  .btn{
+    appearance:none; border:2px solid var(--accent); background:#fff; color:#003047;
+    padding:10px 14px; font-weight:800; border-radius:12px; cursor:pointer;
+    transition:.15s transform ease;
+  }
+  .btn:hover{transform:translateY(-1px);}
+  .btn.primary{background:var(--accent); color:#fff;}
+  .btn.danger{border-color:var(--danger); color:#b91c1c;}
+  .stat{padding:8px 12px; background:#fff; border-radius:12px; font-weight:700;}
+  .stat small{display:block; font-size:12px; opacity:.7; font-weight:600;}
+  .grid{margin-top:16px; display:grid; gap:12px; grid-template-columns:repeat(6,minmax(120px,1fr));}
+  @media (max-width:980px){.grid{grid-template-columns:repeat(4,minmax(110px,1fr));}}
+  @media (max-width:640px){.grid{grid-template-columns:repeat(2,minmax(120px,1fr));}}
+  .card{
+    user-select:none; border-radius:16px; padding:16px;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    font-weight:900; font-size:20px; line-height:1.25; letter-spacing:-0.2px;
+    cursor:pointer; transition:.12s all ease; box-shadow:0 4px 10px #00000014;
+  }
+  .card.word{
+    background:var(--word-bg);
+    border:2px solid var(--word-border);
+  }
+  .card.meaning{
+    background:var(--meaning-bg);
+    border:2px solid var(--meaning-border);
+  }
+  .card:hover{transform:translateY(-2px);}
+  .card.selected{outline:3px solid var(--accent); box-shadow:0 8px 16px #00000022;}
+  .card.correct{animation:pop 320ms ease; opacity:0.4;}
+  @keyframes pop{0%{transform:scale(.98)}60%{transform:scale(1.04)}100%{transform:scale(1)}}
+  .hidden{visibility:hidden;}
+  .footer{text-align:center; margin-top:12px; font-weight:600; opacity:.8;}
+  .confetti{pointer-events:none; position:fixed; inset:0; overflow:hidden;}
+  .confetti i{position:absolute; width:10px; height:16px; opacity:0; animation:fall 1200ms ease-in forwards;}
+  @keyframes fall{0%{transform:translateY(-10vh) rotate(0deg); opacity:0;}20%{opacity:1;}100%{transform:translateY(105vh) rotate(360deg); opacity:0;}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>단어 ⇄ 뜻 매칭게임 <span style="font-size:15px; opacity:.7;">(SNS 세트 컬러버전)</span></h1>
+    <div class="subtitle">영어 카드(파랑)와 뜻 카드(초록)를 <strong>짝지어</strong> 모두 제거해 보세요!</div>
+
+    <div class="panel">
+      <button class="btn primary" id="btnStart">시작 / 다시시작</button>
+      <button class="btn" id="btnShuffle">섞기</button>
+      <button class="btn danger" id="btnResetBest">기록 초기화</button>
+      <div class="stat"><small>시간</small><span id="time">00:00</span></div>
+      <div class="stat"><small>이동</small><span id="moves">0</span></div>
+      <div class="stat"><small>남은쌍</small><span id="left">11</span></div>
+      <div class="stat"><small>최고기록</small><span id="best">--:--</span></div>
+    </div>
+
+    <main class="grid" id="grid"></main>
+    <div class="footer">Tip: 영어 카드와 뜻 카드 색이 다르니 구분이 쉬워요!</div>
+  </div>
+
+  <div class="confetti" id="confetti"></div>
+
+<script>
+const PAIRS = [
+  { id:"join", word:"join", meaning:"가입하다" },
+  { id:"send", word:"send", meaning:"보내다" },
+  { id:"dm", word:"DM", meaning:"다이렉트 메세지" },
+  { id:"write", word:"write", meaning:"쓰다 / 기록하다" },
+  { id:"subscribe", word:"subscribe to", meaning:"구독하다" },
+  { id:"follow", word:"follow", meaning:"팔로우하다 / 따르다" },
+  { id:"share", word:"share", meaning:"공유하다" },
+  { id:"post", word:"post", meaning:"게시하다" },
+  { id:"channel", word:"channel", meaning:"채널" },
+  { id:"account", word:"account", meaning:"계정 / 계좌" },
+  { id:"comment", word:"comment", meaning:"댓글 / 논평" },
+];
+
+const KEY="match_best_sns_color";
+let deck=[],first=null,lock=false,moves=0,left=PAIRS.length,timer=null,sec=0,run=false;
+const $=q=>document.querySelector(q);
+const grid=$("#grid"),time=$("#time"),movesE=$("#moves"),leftE=$("#left"),best=$("#best"),confetti=$("#confetti");
+
+function fmt(s){const m=Math.floor(s/60),ss=s%60;return`${String(m).padStart(2,"0")}:${String(ss).padStart(2,"0")}`;}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function build(){const arr=[];for(const p of PAIRS){arr.push({t:"word",id:p.id,l:p.word});arr.push({t:"meaning",id:p.id,l:p.meaning});}return shuffle(arr);}
+function draw(){
+  grid.innerHTML="";deck=build();for(const c of deck){
+    const el=document.createElement("button");
+    el.className=`card ${c.t}`;el.dataset.id=c.id;el.textContent=c.l;
+    el.onclick=()=>pick(el);grid.appendChild(el);}
+  first=null;lock=false;moves=0;left=PAIRS.length;movesE.textContent=0;leftE.textContent=left;
+}
+function start(){stop();sec=0;time.textContent="00:00";run=true;timer=setInterval(()=>{sec++;time.textContent=fmt(sec);},1000);}
+function stop(){if(timer){clearInterval(timer);timer=null;}run=false;}
+function load(){const v=localStorage.getItem(KEY);best.textContent=v?fmt(v):"--:--";}
+function save(){const v=localStorage.getItem(KEY);if(v===null||sec<+v){localStorage.setItem(KEY,sec);load();}}
+function pick(el){
+  if(lock||el.classList.contains("hidden")||first===el)return;
+  el.classList.add("selected");
+  if(!first){first=el;if(!run)start();return;}
+  const match=first.dataset.id===el.dataset.id&&first.className!==el.className;
+  moves++;movesE.textContent=moves;lock=true;
+  if(match){setTimeout(()=>{first.classList.add("correct");el.classList.add("correct");setTimeout(()=>{first.classList.add("hidden");el.classList.add("hidden");first=null;left--;leftE.textContent=left;lock=false;if(!left)win();},200);},200);}
+  else{setTimeout(()=>{first.classList.remove("selected");el.classList.remove("selected");first=null;lock=false;},300);}
+}
+function win(){stop();save();confettiBurst();setTimeout(()=>alert(`🎉 완료! ${fmt(sec)} | 이동 ${moves}회`),80);}
+function confettiBurst(){confetti.innerHTML="";for(let i=0;i<70;i++){const s=document.createElement("i");s.style.left=Math.random()*100+"vw";s.style.background=i%2?"#60a5fa":"#86efac";s.style.animationDelay=Math.random()*300+"ms";confetti.appendChild(s);}setTimeout(()=>confetti.innerHTML="",1500);}
+$("#btnStart").onclick=()=>{draw();start();};
+$("#btnShuffle").onclick=()=>{const visible=[...grid.children].filter(c=>!c.classList.contains("hidden"));shuffle(visible).forEach(e=>{e.classList.remove("selected");grid.appendChild(e);});};
+$("#btnResetBest").onclick=()=>{if(confirm("최고기록을 초기화할까요?")){localStorage.removeItem(KEY);load();}};
+load();draw();
+</script>
+</body>
+</html>
