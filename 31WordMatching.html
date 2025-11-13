@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>단어매칭게임 — train~went (스카이톤)</title>
+<style>
+  :root{
+    --bg:#e8f4ff;
+    --card:#ffffff;
+    --ink:#0b1a33;
+    --muted:#5b6b86;
+    --accent:#2d7dff;
+    --accent2:#0bb48b;
+    --good:#10b981;
+    --bad:#ef4444;
+    --ring:#8dc7ff;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0; background:linear-gradient(180deg,#f7fbff 0%, var(--bg) 100%); color:var(--ink); font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto}
+  .shell{max-width:1100px; margin:0 auto; padding:20px}
+  header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px}
+  h1{margin:0; font-size:clamp(18px,3vw,26px); font-weight:900}
+  .hud{display:flex; gap:8px; flex-wrap:wrap}
+  .pill{background:#ffffffcc; border:1px solid #cfe0ff; border-radius:999px; padding:8px 12px; font-weight:800}
+  .btn{background:#fff; border:2px solid var(--ring); color:#0b1a33; padding:10px 14px; border-radius:12px; font-weight:900; cursor:pointer; box-shadow:0 4px 10px rgba(9,40,100,.08)}
+  .btn:hover{filter:brightness(1.05)}
+  .btn:active{transform:translateY(1px)}
+
+  .board{display:grid; grid-template-columns:repeat(6, 1fr); gap:14px}
+  @media (max-width:980px){ .board{grid-template-columns:repeat(4, 1fr);} }
+  @media (max-width:640px){ .board{grid-template-columns:repeat(2, 1fr);} }
+
+  .card{
+    position:relative; border:1px solid #dbeafe; border-radius:18px; padding:16px; min-height:92px; display:flex; align-items:center; justify-content:center; text-align:center;
+    font-weight:900; box-shadow:0 10px 24px rgba(15,52,96,.08); cursor:pointer; user-select:none; transition:transform .12s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease;
+  }
+  .card .txt{font-size:clamp(17px,2.8vw,26px); line-height:1.25}
+  .card.en{background:linear-gradient(180deg,#f0f7ff 0%, #cfe3ff 100%); border-color:#aacfff; color:#0042c6;}
+  .card.ko{background:linear-gradient(180deg,#f3fff8 0%, #c9f5e7 100%); border-color:#a4e9d4; color:#006b4e;}
+  .card:hover{box-shadow:0 14px 28px rgba(15,52,96,.15)}
+  .card.sel{outline:3px solid #ffd166; box-shadow:0 0 0 6px rgba(255,209,102,.25)}
+  .card.ok{border-color:#A7F3D0; background:#EDFCF5; filter:brightness(1.05)}
+  .card.gone{animation:vanish .38s ease forwards}
+  @keyframes vanish{to{transform:scale(.9); opacity:0; visibility:hidden}}
+
+  .footer{margin-top:20px; display:flex; gap:10px; align-items:center; justify-content:space-between; color:var(--muted)}
+  .bar{position:relative; flex:1; height:12px; background:#e6f1ff; border-radius:999px; overflow:hidden; border:1px solid #cfe2ff}
+  .bar > i{position:absolute; inset:0; transform-origin:left; background:linear-gradient(90deg,#9cc8ff,#6fd3ff);}
+  .done{font-weight:900}
+
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:18px; background:#082449cc; color:#fff; border:1px solid #2d4d86; padding:10px 14px; border-radius:10px; display:none}
+
+  .celebrate{animation:cele 0.9s ease-out}
+  @keyframes cele{0%{box-shadow:0 0 0 rgba(0,0,0,0)} 40%{box-shadow:0 0 28px rgba(16,185,129,.6)} 100%{box-shadow:0 0 0 rgba(0,0,0,0)}}
+</style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <h1>단어매칭게임 — train ~ went</h1>
+      <div class="hud">
+        <div class="pill">남은 쌍 <b id="left">14</b></div>
+        <div class="pill">맞춘 쌍 <b id="hits">0</b></div>
+        <div class="pill">타이머 <b id="timer">60</b>s</div>
+        <div class="pill">최고기록 <b id="best">—</b></div>
+        <button class="btn" id="restart">↻ 다시하기</button>
+      </div>
+    </header>
+
+    <section class="board" id="board" aria-label="matching board"></section>
+
+    <div class="footer">
+      <div class="bar" aria-hidden="true"><i id="progress"></i></div>
+      <div class="done" id="status">시작!</div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+const PAIRS = [
+  { en:"train", ko:["기차","훈련하다"] },
+  { en:"smile", ko:["미소짓다"] },
+  { en:"happily", ko:["행복하게"] },
+  { en:"give up", ko:["포기하다"] },
+  { en:"give in", ko:["굴복하다","양보하다"] },
+  { en:"never", ko:["절대 ~않다"] },
+  { en:"move", ko:["움직이다","감동시키다"] },
+  { en:"win", ko:["이기다"] },
+  { en:"return", ko:["돌아오다","되돌려주다"] },
+  { en:"abroad", ko:["해외에","해외로"] },
+  { en:"appear", ko:["나타나다","출현하다","보이다"] },
+  { en:"Germany", ko:["독일"] },
+  { en:"always", ko:["항상"] },
+  { en:"went", ko:["갔다 (go의 과거)"] }
+];
+
+const ROUND_SEC = 60;
+const BEST_KEY = "match_best_time_14";
+
+const board = document.getElementById('board');
+const leftE = document.getElementById('left');
+const hitsE = document.getElementById('hits');
+const timerE = document.getElementById('timer');
+const bestE = document.getElementById('best');
+const restartBtn = document.getElementById('restart');
+const statusE = document.getElementById('status');
+const progress = document.getElementById('progress');
+const toast = document.getElementById('toast');
+
+let cards = [], model = [], sel = [], leftPairs = 0, hits = 0, t = ROUND_SEC, timerTO = null, startedAt = 0;
+
+const shuffle = arr => arr.sort(()=>Math.random()-0.5);
+const now = () => +new Date();
+const speak = txt => { try{ const u=new SpeechSynthesisUtterance("\u200B"+txt+","); u.lang='en-US'; u.rate=0.92; speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){} };
+function toastMsg(m,ms=900){ toast.textContent=m; toast.style.display='block'; setTimeout(()=>toast.style.display='none', ms); }
+function saveBest(seconds){ const prev = localStorage.getItem(BEST_KEY); if(!prev || seconds < +prev){ localStorage.setItem(BEST_KEY, String(seconds)); } }
+function loadBest(){ const v = localStorage.getItem(BEST_KEY); bestE.textContent = v? v+"s" : '—'; }
+
+function build(){
+  const arr = [];
+  PAIRS.forEach((p, i)=>{
+    arr.push({ id:i, type:'en', text:p.en });
+    const koText = Array.isArray(p.ko)? p.ko.join(', ') : p.ko;
+    arr.push({ id:i, type:'ko', text:koText });
+  });
+  model = shuffle(arr);
+  board.innerHTML = '';
+  cards = model.map((m, idx)=>{
+    const div = document.createElement('button');
+    div.className = 'card '+m.type;
+    div.setAttribute('data-i', idx);
+    div.innerHTML = `<div class="txt">${m.text}</div>`;
+    div.addEventListener('click', onPick);
+    board.appendChild(div);
+    return div;
+  });
+  leftPairs = PAIRS.length; hits = 0; sel = [];
+  leftE.textContent = leftPairs; hitsE.textContent = hits; statusE.textContent = '시작!';
+  progress.style.transform = 'scaleX(1)';
+  clearTimeout(timerTO); t = ROUND_SEC; timerE.textContent = t; startedAt = now(); tick();
+}
+
+function tick(){ timerE.textContent = t; progress.style.transform = `scaleX(${Math.max(0, t/ROUND_SEC)})`; if(t<=0){ end(false); return; } t--; timerTO = setTimeout(tick, 1000); }
+function onPick(e){ const el = e.currentTarget; const i = +el.getAttribute('data-i'); if(el.classList.contains('gone')) return; if(sel.includes(i)) return; if(sel.length === 2) return; el.classList.add('sel'); sel.push(i); if(sel.length === 2){ setTimeout(checkPair, 120); } }
+function checkPair(){ const [a,b] = sel; sel = []; const A = model[a], B = model[b]; const ea = cards[a], eb = cards[b]; const ok = (A.id===B.id) && (A.type !== B.type); if(ok){ ea.classList.remove('sel'); eb.classList.remove('sel'); ea.classList.add('ok','gone'); eb.classList.add('ok','gone'); hits++; leftPairs--; hitsE.textContent = hits; leftE.textContent = leftPairs; const read = A.type==='en'? A.text : B.text; speak(read); if(leftPairs===0){ end(true); } else { statusE.textContent = '좋아요! 계속!'; statusE.classList.add('celebrate'); setTimeout(()=>statusE.classList.remove('celebrate'), 500);} } else { ea.classList.add('no'); eb.classList.add('no'); setTimeout(()=>{ ea.classList.remove('sel','no'); eb.classList.remove('sel','no'); }, 350); statusE.textContent = '다시 시도!'; } }
+function end(success){ clearTimeout(timerTO); if(success){ const elapsed = Math.max(0, Math.round((now()-startedAt)/1000)); saveBest(elapsed); loadBest(); statusE.textContent = `🎉 성공! ${elapsed}s 만에 완료`; toastMsg('축하합니다! 최고기록이 갱신되었는지 확인해 보세요 ✨', 1500); } else { statusE.textContent = '⏰ 시간 종료! 다시 도전해요'; toastMsg('아쉬워요! 다시 도전!', 900); } }
+function restart(){ speechSynthesis.cancel(); build(); }
+restartBtn.addEventListener('click', restart);
+window.addEventListener('load', ()=>{ loadBest(); build(); });
+</script>
+</body>
+</html>

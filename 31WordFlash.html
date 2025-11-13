@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Train Set Flashcards</title>
+<style>
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #cfe9ff, #d8ffe6);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    padding: 40px;
+  }
+  .card {
+    width: 180px;
+    height: 220px;
+    perspective: 1000px;
+  }
+  .inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.8s;
+    transform-style: preserve-3d;
+    cursor: pointer;
+  }
+  .card.flipped .inner {
+    transform: rotateY(180deg);
+  }
+  .front, .back {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: bold;
+    color: white;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    box-sizing: border-box;
+    padding: 10px;
+  }
+  .front {
+    background: var(--color);
+  }
+  .back {
+    background: #0a2463;
+    transform: rotateY(180deg);
+    text-align: center;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+<script>
+const words = [
+  {en: "train", kr: "기차, 훈련하다"},
+  {en: "smile", kr: "미소짓다"},
+  {en: "happily", kr: "행복하게"},
+  {en: "give up", kr: "포기하다"},
+  {en: "give in", kr: "굴복하다, 양보하다"},
+  {en: "never", kr: "절대 ~않다"},
+  {en: "move", kr: "움직이다, 감동시키다"},
+  {en: "win", kr: "이기다"},
+  {en: "return", kr: "돌아오다, 되돌려주다"},
+  {en: "abroad", kr: "해외에"},
+  {en: "appear", kr: "나타나다, 출현하다"},
+  {en: "Germany", kr: "독일"},
+  {en: "always", kr: "항상"},
+  {en: "went", kr: "갔다 (go의 과거형)"},
+  {en: "appear", kr: "나타나다, 보이다"}
+];
+
+function speak(word) {
+  const utter = new SpeechSynthesisUtterance("\u200B" + word + ",");
+  utter.lang = "en-US";
+  utter.rate = 0.9;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utter);
+}
+
+function createCards() {
+  const colors = ["#3498db", "#2ecc71"];
+  words.forEach((w, i) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="inner">
+        <div class="front" style="--color:${colors[i%2]}">${w.en}</div>
+        <div class="back">${w.kr}</div>
+      </div>
+    `;
+    card.addEventListener("click", () => {
+      speak(w.en);
+      card.classList.toggle("flipped");
+    });
+    document.body.appendChild(card);
+  });
+}
+
+createCards();
+</script>
+</body>
+</html>
