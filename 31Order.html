@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>문장순서배열</title>
+<style>
+    body {
+        margin: 0;
+        font-family: "Pretendard", sans-serif;
+        background: linear-gradient(135deg, #a8c0ff, #3f2b96);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 20px;
+        color: #fff;
+    }
+
+    .container {
+        width: 100%;
+        max-width: 900px;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 25px;
+        border-radius: 20px;
+        backdrop-filter: blur(15px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+    }
+
+    h2 {
+        margin-top: 0;
+        font-size: 26px;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .meaning-box {
+        font-size: 22px;
+        text-align: center;
+        margin-bottom: 20px;
+        font-weight: 600;
+    }
+
+    .answer-box {
+        min-height: 70px;
+        background: rgba(255,255,255,0.25);
+        padding: 15px;
+        border-radius: 15px;
+        font-size: 22px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+        margin-bottom: 25px;
+    }
+
+    .chip {
+        background: rgba(255,255,255,0.85);
+        padding: 12px 18px;
+        font-size: 20px;
+        color: #333;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 700;
+        transition: 0.2s;
+        user-select: none;
+    }
+
+    .chip:hover {
+        transform: scale(1.08);
+        background: #fff;
+    }
+
+    .chip.disabled {
+        opacity: 0.2;
+        pointer-events: none;
+    }
+
+    .controls {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    button {
+        padding: 10px 18px;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        font-size: 17px;
+        font-weight: 700;
+        background: #fff;
+    }
+
+    .progress {
+        text-align: center;
+        margin-bottom: 10px;
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    @keyframes sparkle {
+        0% { filter: brightness(1); }
+        50% { filter: brightness(2); }
+        100% { filter: brightness(1); }
+    }
+</style>
+</head>
+
+<body>
+<div class="container">
+    <h2>문장 순서 배열</h2>
+    <div class="progress" id="progress"></div>
+    <div class="meaning-box" id="meaning"></div>
+    <div class="answer-box" id="answerBox"></div>
+    <div class="chips" id="chips"></div>
+
+    <div class="controls">
+        <button onclick="undo()">되돌리기</button>
+        <button onclick="resetAnswer()">지우기</button>
+        <button onclick="shuffle()">다시섞기</button>
+    </div>
+</div>
+
+<script>
+const problems = [
+    { kr: "그는 매일 훈련한다.", en: "He trains every day." },
+    { kr: "그는 행복하게 미소 짓는다.", en: "He smiles happily." },
+    { kr: "그는 절대 포기하지 않는다.", en: "He never gives up." },
+    { kr: "그는 독일로 이사했다.", en: "He moved to Germany." },
+    { kr: "그는 한국으로 돌아올 것이다.", en: "He will return to Korea." },
+    { kr: "그는 항상 이긴다.", en: "He always wins." },
+    { kr: "그는 팀원들과 훈련한다.", en: "He trains with team members." },
+    { kr: "그는 독일에 갔다.", en: "He went to Germany." },
+    { kr: "그의 팀은 한국으로 돌아왔다.", en: "His team returned to Korea." },
+    { kr: "그는 많은 광고에 나온다.", en: "He appears in many ads." },
+    { kr: "그는 매일 달린다.", en: "He runs every day." },
+    { kr: "그의 팀은 항상 이긴다.", en: "His team always wins." },
+    { kr: "그는 TV 광고에 출연할 것이다.", en: "He will appear on a TV ad." }
+];
+
+let current = 0;
+let selected = [];
+let chipElements = [];
+
+function startProblem() {
+    const p = problems[current];
+    document.getElementById("meaning").textContent = p.kr;
+    document.getElementById("progress").textContent = `${current+1} / ${problems.length}`;
+
+    const words = p.en.replace(".", "").split(" ");
+    const shuffled = [...words].sort(() => Math.random() - 0.5);
+
+    const chipBox = document.getElementById("chips");
+    const answerBox = document.getElementById("answerBox");
+
+    chipBox.innerHTML = "";
+    answerBox.innerHTML = "";
+    selected = [];
+    chipElements = [];
+
+    shuffled.forEach(word => {
+        const btn = document.createElement("div");
+        btn.className = "chip";
+        btn.textContent = word;
+        btn.onclick = () => selectChip(btn, word);
+        chipBox.appendChild(btn);
+        chipElements.push(btn);
+    });
+}
+
+function selectChip(btn, word) {
+    btn.classList.add("disabled");
+    selected.push({ btn, word });
+
+    const box = document.getElementById("answerBox");
+    const item = document.createElement("div");
+    item.className = "chip";
+    item.textContent = word;
+    item.onclick = () => removeChip(item, word);
+    box.appendChild(item);
+
+    checkAnswer();
+}
+
+function removeChip(item, word) {
+    item.remove();
+    const found = selected.find(s => s.word === word);
+    if (found) found.btn.classList.remove("disabled");
+    selected = selected.filter(s => s.word !== word);
+}
+
+function undo() {
+    if (selected.length === 0) return;
+    const last = selected.pop();
+    last.btn.classList.remove("disabled");
+
+    const answerBox = document.getElementById("answerBox");
+    answerBox.removeChild(answerBox.lastChild);
+}
+
+function resetAnswer() {
+    const answerBox = document.getElementById("answerBox");
+    answerBox.innerHTML = "";
+    selected.forEach(s => s.btn.classList.remove("disabled"));
+    selected = [];
+}
+
+function shuffle() {
+    startProblem();
+}
+
+function checkAnswer() {
+    const p = problems[current];
+    const correctWords = p.en.replace(".", "").split(" ");
+    const userWords = selected.map(s => s.word);
+
+    if (userWords.length !== correctWords.length) return;
+
+    if (userWords.join(" ") === correctWords.join(" ")) {
+        celebrate(() => {
+            current++;
+            if (current < problems.length) startProblem();
+            else finished();
+        });
+    }
+}
+
+function celebrate(callback) {
+    const box = document.getElementById("answerBox");
+    box.style.animation = "sparkle 0.6s ease";
+
+    setTimeout(() => {
+        box.style.animation = "";
+        callback();
+    }, 600);
+}
+
+function finished() {
+    document.querySelector(".container").innerHTML =
+        `<h2>🎉 모든 문제를 완료했습니다! 🎉</h2>`;
+}
+
+startProblem();
+</script>
+</body>
+</html>
