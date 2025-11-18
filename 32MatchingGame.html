@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>단어 매칭게임 - writer ~ from</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #e0f2ff, #f5fbff);
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    h1 {
+        margin: 10px 0 5px;
+        font-size: 1.7rem;
+        color: #135ba3;
+        font-weight: 800;
+        text-align: center;
+    }
+
+    .info-bar {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 10px;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #0b3c73;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .info-item span.label {
+        opacity: 0.7;
+        margin-right: 4px;
+    }
+
+    .board {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 14px;
+        width: 100%;
+        max-width: 900px;
+        margin-top: 10px;
+    }
+
+    .card {
+        position: relative;
+        padding: 12px;
+        min-height: 90px;
+        border-radius: 14px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.3s ease;
+        font-weight: 700;
+        font-size: 1.1rem;
+        box-sizing: border-box;
+        user-select: none;
+    }
+
+    .card.word-card {
+        background: #2f80ed;
+        color: #ffffff;
+    }
+
+    .card.meaning-card {
+        background: #ffb74d;
+        color: #222222;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+    }
+
+    .card.selected {
+        outline: 3px solid #00c9a7;
+        transform: translateY(-3px) scale(1.02);
+    }
+
+    .card.matched {
+        opacity: 0;
+        pointer-events: none;
+        transform: scale(0.7);
+    }
+
+    .card.wrong {
+        animation: shake 0.25s;
+    }
+
+    @keyframes shake {
+        0% { transform: translateX(0); }
+        25% { transform: translateX(-4px); }
+        50% { transform: translateX(4px); }
+        75% { transform: translateX(-4px); }
+        100% { transform: translateX(0); }
+    }
+
+    .message {
+        margin-top: 14px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #0b3c73;
+        min-height: 1.4em;
+        text-align: center;
+    }
+
+    .btn-row {
+        margin-top: 8px;
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    button {
+        border: none;
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        background: #2f80ed;
+        color: white;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.16);
+        transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+    }
+
+    button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        background: #2160b3;
+    }
+
+    button:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.16);
+    }
+
+    @media (max-width: 600px) {
+        h1 {
+            font-size: 1.4rem;
+        }
+        .card {
+            font-size: 1rem;
+            min-height: 80px;
+        }
+    }
+</style>
+</head>
+<body>
+
+<h1>단어 매칭게임 (writer ~ from)</h1>
+
+<div class="info-bar">
+    <div class="info-item"><span class="label">⏱ 시간:</span><span id="time">0.0</span>초</div>
+    <div class="info-item"><span class="label">🏆 최고기록:</span><span id="best">-</span></div>
+    <div class="info-item"><span class="label">남은 카드쌍:</span><span id="remaining">0</span></div>
+</div>
+
+<div class="btn-row">
+    <button id="restartBtn">다시 섞기</button>
+</div>
+
+<div class="message" id="message">영어 단어와 뜻 카드를 짝지어 보세요!</div>
+
+<div class="board" id="board"></div>
+
+<script>
+const DATA = [
+    { w: "writer",     k: ["글쓴이", "작가"] },
+    { w: "interesting",k: ["흥미로운"] },
+    { w: "become",     k: ["되다"] },
+    { w: "about",      k: ["~에 대하여"] },
+    { w: "brave",      k: ["용감한"] },
+    { w: "long",       k: ["긴"] },
+    { w: "rich",       k: ["부유한", "부자"] },
+    { w: "England",    k: ["영국"] },
+    { w: "children",   k: ["아이들"] },
+    { w: "blue",       k: ["파란색"] },
+    { w: "movie",      k: ["영화"] },
+    { w: "character",  k: ["등장인물, 캐릭터", "성격"] },
+    { w: "from",       k: ["~에서", "~로부터"] }
+];
+
+const boardEl = document.getElementById("board");
+const timeEl = document.getElementById("time");
+const bestEl = document.getElementById("best");
+const remainingEl = document.getElementById("remaining");
+const messageEl = document.getElementById("message");
+const restartBtn = document.getElementById("restartBtn");
+
+let cards = [];
+let firstSelection = null;
+let secondSelection = null;
+let matchedPairs = 0;
+let totalPairs = DATA.length;
+let timer = null;
+let time = 0;
+let gameStarted = false;
+const BEST_KEY = "matching_best_time_writer_set";
+
+function formatMeanings(list) {
+    return list.join("<br>");
+}
+
+function createCards() {
+    cards = [];
+    let idCounter = 0;
+
+    DATA.forEach((item, index) => {
+        const pairId = index;
+
+        cards.push({
+            id: idCounter++,
+            pairId,
+            type: "word",
+            text: item.w
+        });
+
+        cards.push({
+            id: idCounter++,
+            pairId,
+            type: "meaning",
+            text: formatMeanings(item.k)
+        });
+    });
+}
+
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+function renderBoard() {
+    boardEl.innerHTML = "";
+    shuffle(cards);
+
+    cards.forEach(card => {
+        const div = document.createElement("div");
+        div.className = "card " + (card.type === "word" ? "word-card" : "meaning-card");
+        div.dataset.id = card.id;
+        div.dataset.pairId = card.pairId;
+        div.dataset.type = card.type;
+        div.innerHTML = card.text;
+        div.addEventListener("click", onCardClick);
+        card.el = div;
+        boardEl.appendChild(div);
+    });
+
+    remainingEl.textContent = totalPairs - matchedPairs;
+}
+
+function resetGame() {
+    stopTimer();
+    time = 0;
+    timeEl.textContent = "0.0";
+    gameStarted = false;
+    matchedPairs = 0;
+    firstSelection = null;
+    secondSelection = null;
+    messageEl.textContent = "영어 단어와 뜻 카드를 짝지어 보세요!";
+    createCards();
+    renderBoard();
+}
+
+function startTimer() {
+    if (gameStarted) return;
+    gameStarted = true;
+    timer = setInterval(() => {
+        time += 0.1;
+        timeEl.textContent = time.toFixed(1);
+    }, 100);
+}
+
+function stopTimer() {
+    if (timer) {
+        clearInterval(timer);
+        timer = null;
+    }
+}
+
+function loadBest() {
+    const best = localStorage.getItem(BEST_KEY);
+    if (best) {
+        bestEl.textContent = best + "초";
+    } else {
+        bestEl.textContent = "-";
+    }
+}
+
+function saveBest(newTime) {
+    const best = localStorage.getItem(BEST_KEY);
+    if (!best || newTime < parseFloat(best)) {
+        localStorage.setItem(BEST_KEY, newTime.toFixed(1));
+        bestEl.textContent = newTime.toFixed(1) + "초";
+        return true;
+    }
+    return false;
+}
+
+function clearSelections() {
+    if (firstSelection && firstSelection.el) {
+        firstSelection.el.classList.remove("selected");
+    }
+    if (secondSelection && secondSelection.el) {
+        secondSelection.el.classList.remove("selected");
+        secondSelection.el.classList.remove("wrong");
+    }
+    firstSelection = null;
+    secondSelection = null;
+}
+
+function onCardClick(e) {
+    const el = e.currentTarget;
+    const id = Number(el.dataset.id);
+    const pairId = Number(el.dataset.pairId);
+    const type = el.dataset.type;
+
+    // 이미 맞춘 카드는 클릭 무시
+    if (el.classList.contains("matched")) return;
+
+    // 타이머 시작
+    startTimer();
+
+    // 같은 카드를 두 번 클릭하면 해제만
+    if (firstSelection && firstSelection.id === id) {
+        clearSelections();
+        return;
+    }
+
+    if (!firstSelection) {
+        firstSelection = { id, pairId, type, el };
+        el.classList.add("selected");
+        return;
+    }
+
+    if (!secondSelection) {
+        secondSelection = { id, pairId, type, el };
+        el.classList.add("selected");
+
+        // 같은 종류(둘 다 영어 / 둘 다 뜻)이면 틀린 것으로 처리
+        if (firstSelection.pairId === secondSelection.pairId &&
+            firstSelection.type !== secondSelection.type) {
+            // 정답
+            setTimeout(() => {
+                firstSelection.el.classList.add("matched");
+                secondSelection.el.classList.add("matched");
+                matchedPairs++;
+                remainingEl.textContent = totalPairs - matchedPairs;
+                clearSelections();
+
+                if (matchedPairs === totalPairs) {
+                    stopTimer();
+                    const isNewRecord = saveBest(time);
+                    if (isNewRecord) {
+                        messageEl.textContent = `🎉 모두 맞췄어요! 기록: ${time.toFixed(1)}초 (최고 기록 갱신!)`;
+                    } else {
+                        messageEl.textContent = `잘했어요! 기록: ${time.toFixed(1)}초`;
+                    }
+                } else {
+                    messageEl.textContent = "정답! 계속 이어가 보세요.";
+                }
+            }, 250);
+        } else {
+            // 오답
+            firstSelection.el.classList.add("wrong");
+            secondSelection.el.classList.add("wrong");
+            messageEl.textContent = "다시 한 번 생각해 보세요.";
+            setTimeout(() => {
+                clearSelections();
+            }, 350);
+        }
+    }
+}
+
+restartBtn.addEventListener("click", resetGame);
+
+// 초기화
+loadBest();
+resetGame();
+</script>
+
+</body>
+</html>
