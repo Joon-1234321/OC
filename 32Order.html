@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>문장순서배열</title>
+
+<style>
+/* ---------------- 기본 스타일 ---------------- */
+body{
+  margin:0;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg,#1e3c72,#2a5298);
+  color:#fff;
+}
+.wrap{
+  max-width:900px;
+  margin:0 auto;
+  padding:20px;
+}
+
+/* Glass card */
+.card{
+  background:rgba(255,255,255,0.13);
+  backdrop-filter: blur(12px);
+  border-radius:18px;
+  padding:20px;
+  margin-top:20px;
+  box-shadow:0 8px 20px rgba(0,0,0,0.25);
+}
+
+/* 단어칩 */
+.chip{
+  display:inline-block;
+  padding:10px 16px;
+  margin:6px;
+  background:rgba(255,255,255,0.15);
+  border-radius:20px;
+  cursor:pointer;
+  user-select:none;
+  font-weight:600;
+  transition:0.2s;
+}
+.chip:hover{
+  background:rgba(255,255,255,0.28);
+  transform:translateY(-2px);
+}
+
+/* 답칸 */
+.answer-box{
+  min-height:60px;
+  padding:10px;
+  background:rgba(255,255,255,0.18);
+  border-radius:12px;
+  margin-bottom:15px;
+  display:flex;
+  flex-wrap:wrap;
+}
+
+/* 버튼 */
+.btns{
+  margin-top:10px;
+  display:flex;
+  gap:10px;
+}
+button{
+  padding:10px 18px;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:700;
+  background:#ffda79;
+  color:#222;
+}
+button:hover{ background:#ffe9ae; }
+
+/* 정답 반짝 효과 */
+.correct-glow{
+  animation:glow 0.6s ease-out;
+}
+@keyframes glow{
+  0%{ box-shadow:0 0 2px 2px #00ffea; }
+  100%{ box-shadow:none; }
+}
+
+/* 진행바 */
+.progress-bar{
+  height:10px;
+  background:#ffffff40;
+  border-radius:10px;
+  overflow:hidden;
+  margin-bottom:10px;
+}
+.progress{
+  height:100%;
+  width:0%;
+  background:#00ffea;
+  transition:0.3s;
+}
+
+/* 콘페티 */
+.confetti{
+  position:fixed;
+  top:0;left:50%;
+  transform:translateX(-50%);
+  font-size:40px;
+  animation: drop 1.5s linear forwards;
+}
+@keyframes drop{
+  0%{ transform:translate(-50%, -100px); opacity:1; }
+  100%{ transform:translate(-50%, 600px); opacity:0; }
+}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+  
+  <h1>문장 순서 배열</h1>
+  <div id="counter">1 / 12</div>
+
+  <div class="progress-bar"><div class="progress" id="progress"></div></div>
+
+  <div id="quiz" class="card"></div>
+
+</div>
+
+<script>
+/* ========================= 데이터 ========================= */
+const problems = [
+  {kor:"그녀는 작가이다.", eng:"she is a writer"},
+  {kor:"그녀의 영화는 재미있다.", eng:"her movie is interesting"},
+  {kor:"등장인물들은 용감하다.", eng:"the characters are brave"},
+  {kor:"그녀의 책은 우정에 관한 것이다.", eng:"her book is about friendship"},
+  {kor:"그 이야기는 영화가 될 것이다.", eng:"the story will become a movie"},
+  {kor:"그녀의 이야기는 길다.", eng:"her story is long"},
+  {kor:"그녀의 이야기는 흥미롭다.", eng:"her story is interesting"},
+  {kor:"그녀는 영국 출신이다.", eng:"she is from England"},
+  {kor:"그 책은 아이들을 위한 것이다.", eng:"the book is for children"},
+  {kor:"그녀는 엄마이다.", eng:"she is a mother"},
+  {kor:"그 책은 흥미롭다.", eng:"the book is interesting"},
+  {kor:"그녀의 눈은 파랗다.", eng:"her eyes are blue"}
+];
+
+let current = 0;
+let selectedWords = [];
+
+/* ========================= 문제 출력 ========================= */
+function loadProblem(){
+  const q = problems[current];
+  document.getElementById("counter").innerText = `${current+1} / ${problems.length}`;
+
+  document.getElementById("progress").style.width = 
+      ((current)/problems.length)*100 + "%";
+
+  // 단어칩 섞기
+  const words = q.eng.split(" ");
+  const shuffled = words.slice().sort(()=>Math.random()-0.5);
+
+  const chipHTML = shuffled.map(w=>`<span class="chip" onclick="selectChip(this)">${w}</span>`).join("");
+
+  document.getElementById("quiz").innerHTML = `
+    <h2>${q.kor}</h2>
+
+    <div class="answer-box" id="answerBox"></div>
+
+    <h3>단어 선택</h3>
+    <div id="chips">${chipHTML}</div>
+
+    <div class="btns">
+      <button onclick="resetAnswer()">지우기</button>
+      <button onclick="shuffleChips()">다시섞기</button>
+      <button onclick="checkAnswer()">정답확인</button>
+    </div>
+  `;
+  selectedWords = [];
+}
+
+/* ========================= 칩 클릭 ========================= */
+function selectChip(el){
+  const box = document.getElementById("answerBox");
+
+  if(el.parentNode.id==="chips"){
+    box.appendChild(el);
+    selectedWords.push(el.innerText);
+  } else {
+    document.getElementById("chips").appendChild(el);
+    selectedWords = selectedWords.filter(w=>w!==el.innerText);
+  }
+}
+
+/* 지우기 */
+function resetAnswer(){
+  const box = document.getElementById("answerBox");
+  const chips = [...box.children];
+  chips.forEach(ch=>{
+    document.getElementById("chips").appendChild(ch);
+  });
+  selectedWords = [];
+}
+
+/* 다시섞기 */
+function shuffleChips(){
+  const chips = [...document.getElementById("chips").children];
+  chips.sort(()=>Math.random()-0.5).forEach(ch=>{
+    document.getElementById("chips").appendChild(ch);
+  });
+}
+
+/* ========================= 정답 확인 ========================= */
+function checkAnswer(){
+  const correct = problems[current].eng;
+
+  if(selectedWords.join(" ") === correct){
+    glow();
+    confetti();
+
+    setTimeout(()=>{
+        current++;
+        if(current < problems.length){
+            loadProblem();
+        } else {
+            finish();
+        }
+    },700);
+
+  }else{
+    alert("틀렸습니다. 다시 시도해 보세요!");
+  }
+}
+
+/* 반짝 효과 */
+function glow(){
+  const card = document.getElementById("quiz");
+  card.classList.add("correct-glow");
+  setTimeout(()=>card.classList.remove("correct-glow"),600);
+}
+
+/* 콘페티 */
+function confetti(){
+  const emoji = ["🎉","✨","🌟","💫"];
+  const el = document.createElement("div");
+  el.className="confetti";
+  el.innerText = emoji[Math.floor(Math.random()*emoji.length)];
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1600);
+}
+
+/* ========================= 완료 메시지 ========================= */
+function finish(){
+  document.getElementById("quiz").innerHTML = `
+    <h2>🎉 모든 문제를 완료했습니다! 🎉</h2>
+    <p>잘했어요!</p>
+  `;
+  document.getElementById("progress").style.width = "100%";
+}
+
+loadProblem();
+</script>
+
+</body>
+</html>
