@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>단어 매칭게임 - like 세트</title>
+<style>
+  :root{
+    --bg1:#e0f2fe;
+    --bg2:#cffafe;
+    --panel:#ffffffee;
+    --text:#0f172a;
+    --word:#2563eb;
+    --word-soft:#dbeafe;
+    --mean:#f59e0b;
+    --mean-soft:#fef3c7;
+    --match:#22c55e;
+    --no:#ef4444;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));
+    color:var(--text);
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    padding:18px;
+  }
+  .wrap{
+    width:100%;
+    max-width:1100px;
+  }
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  h1{
+    margin:0;
+    font-size:clamp(20px,3vw,28px);
+    font-weight:900;
+  }
+  .subtitle{
+    font-size:0.9rem;
+    opacity:0.8;
+  }
+  .hud{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    align-items:center;
+  }
+  .pill{
+    background:#e5f0ff;
+    border-radius:999px;
+    padding:6px 12px;
+    font-size:0.85rem;
+    border:1px solid #bfdbfe;
+  }
+  .btn{
+    border:none;
+    border-radius:999px;
+    padding:7px 14px;
+    font-size:0.9rem;
+    font-weight:700;
+    cursor:pointer;
+    background:#0ea5e9;
+    color:white;
+    box-shadow:0 4px 10px rgba(15,23,42,0.25);
+  }
+  .btn:active{transform:translateY(1px);box-shadow:0 2px 6px rgba(15,23,42,0.25);}
+
+  .board{
+    background:var(--panel);
+    border-radius:18px;
+    padding:14px;
+    box-shadow:0 16px 40px rgba(15,23,42,0.25);
+    border:1px solid rgba(148,163,184,0.6);
+  }
+
+  .info-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+    font-size:0.9rem;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .info-row span b{font-size:1.05rem;}
+
+  .grid{
+    display:grid;
+    gap:10px;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+  @media (max-width:900px){
+    .grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+  }
+  @media (max-width:600px){
+    .grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  }
+
+  .card{
+    position:relative;
+    min-height:90px;
+    border-radius:14px;
+    padding:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    font-weight:800;
+    font-size:clamp(16px,2.2vw,22px);
+    cursor:pointer;
+    user-select:none;
+    transition:transform 0.12s, box-shadow 0.12s, background 0.12s, border-color 0.12s;
+    box-shadow:0 4px 10px rgba(15,23,42,0.15);
+    border:2px solid transparent;
+  }
+  .card.word{
+    background:var(--word-soft);
+    color:#1d4ed8;
+    border-color:#bfdbfe;
+  }
+  .card.meaning{
+    background:var(--mean-soft);
+    color:#92400e;
+    border-color:#fed7aa;
+  }
+  .card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 7px 16px rgba(15,23,42,0.25);
+  }
+  .card.flipped{
+    border-color:#0ea5e9;
+    box-shadow:0 0 0 2px rgba(56,189,248,0.7);
+    background:#ffffff;
+  }
+  .card.matched{
+    background:#dcfce7;
+    color:#166534;
+    border-color:var(--match);
+    cursor:default;
+  }
+
+  .toast{
+    margin-top:8px;
+    min-height:1.2em;
+    font-size:0.9rem;
+    opacity:0.9;
+  }
+  .toast.good{color:#16a34a;}
+  .toast.bad{color:#b91c1c;}
+
+  .best{
+    font-weight:600;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>단어 매칭게임</h1>
+      <div class="subtitle">영어 단어와 한국어 뜻 카드를 짝지어 보세요.</div>
+    </div>
+    <div class="hud">
+      <div class="pill">⏱ 시간: <b id="time">0.0</b>초</div>
+      <div class="pill">🔔 시도: <b id="tries">0</b>회</div>
+      <div class="pill">🏆 최고기록: <span id="best">-</span></div>
+      <button class="btn" id="resetBtn">다시 섞기</button>
+    </div>
+  </header>
+
+  <main class="board">
+    <div class="info-row">
+      <span>총 <b>13</b>쌍의 카드가 있습니다.</span>
+      <span id="statusText"></span>
+    </div>
+    <section class="grid" id="grid"></section>
+    <div class="toast" id="toast"></div>
+  </main>
+</div>
+
+<script>
+const WORDS = [
+  { en:"like",         ko:"좋아하다" },
+  { en:"eat",          ko:"먹다" },
+  { en:"school lunch", ko:"급식" },
+  { en:"glasses",      ko:"안경" },
+  { en:"study",        ko:"공부하다" },
+  { en:"play",         ko:"놀다" },
+  { en:"P.E. class",   ko:"체육 수업" },
+  { en:"brother",      ko:"형, 남동생" },
+  { en:"hair",         ko:"머리카락" },
+  { en:"short",        ko:"짧은" },
+  { en:"together",     ko:"함께" },
+  { en:"wear",         ko:"입다, 착용하다" },
+  { en:"math",         ko:"수학" }
+];
+
+const grid = document.getElementById("grid");
+const timeEl = document.getElementById("time");
+const triesEl = document.getElementById("tries");
+const bestEl = document.getElementById("best");
+const resetBtn = document.getElementById("resetBtn");
+const toastEl = document.getElementById("toast");
+const statusText = document.getElementById("statusText");
+
+const BEST_KEY = "matching_best_like_set";
+
+let firstCard = null;
+let lockBoard = false;
+let tries = 0;
+let matchedPairs = 0;
+
+let timerStarted = false;
+let startTime = null;
+let timerId = null;
+
+function shuffle(array){
+  const a = [...array];
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function formatTime(ms){
+  const s = ms/1000;
+  return s.toFixed(1);
+}
+
+function loadBest(){
+  const v = localStorage.getItem(BEST_KEY);
+  if(v){
+    bestEl.textContent = v + "초";
+  } else {
+    bestEl.textContent = "-";
+  }
+}
+
+function saveBest(ms){
+  const sec = parseFloat(formatTime(ms));
+  const prev = localStorage.getItem(BEST_KEY);
+  if(!prev || sec < parseFloat(prev)){
+    localStorage.setItem(BEST_KEY, sec.toString());
+    bestEl.textContent = sec + "초 (최신)";
+    showToast("🎉 최고 기록 갱신!", true);
+  }
+}
+
+function startTimer(){
+  if(timerStarted) return;
+  timerStarted = true;
+  startTime = performance.now();
+  timerId = setInterval(()=>{
+    const now = performance.now();
+    timeEl.textContent = formatTime(now - startTime);
+  },100);
+}
+
+function stopTimer(){
+  if(timerId){
+    clearInterval(timerId);
+    timerId = null;
+  }
+}
+
+function resetState(){
+  firstCard = null;
+  lockBoard = false;
+  tries = 0;
+  matchedPairs = 0;
+  triesEl.textContent = "0";
+  timeEl.textContent = "0.0";
+  timerStarted = false;
+  startTime = null;
+  stopTimer();
+  toastEl.textContent = "";
+  toastEl.className = "toast";
+  statusText.textContent = "";
+}
+
+function buildCards(){
+  grid.innerHTML = "";
+  const temp = [];
+  WORDS.forEach((w,idx)=>{
+    temp.push({ pair: idx, type: "en", text: w.en });
+    temp.push({ pair: idx, type: "ko", text: w.ko });
+  });
+  const cards = shuffle(temp);
+
+  cards.forEach((c)=>{
+    const div = document.createElement("button");
+    div.type = "button";
+    div.className = "card " + (c.type === "en" ? "word" : "meaning");
+    div.dataset.pair = c.pair;
+    div.dataset.type = c.type;
+    div.textContent = c.text;
+    div.addEventListener("click", onCardClick);
+    grid.appendChild(div);
+  });
+}
+
+function onCardClick(e){
+  const cardEl = e.currentTarget;
+  if(lockBoard) return;
+  if(cardEl.classList.contains("matched")) return;
+
+  startTimer(); // 첫 클릭 시 타이머 시작
+
+  if(firstCard && firstCard === cardEl) return; // 같은 카드 두 번 방지
+
+  cardEl.classList.add("flipped");
+
+  if(!firstCard){
+    firstCard = cardEl;
+    return;
+  }
+
+  // 두 번째 카드
+  lockBoard = true;
+  tries++;
+  triesEl.textContent = String(tries);
+
+  const isMatch = firstCard.dataset.pair === cardEl.dataset.pair &&
+                  firstCard.dataset.type !== cardEl.dataset.type;
+
+  if(isMatch){
+    showToast("정답! 잘했어요 😊", true);
+    firstCard.classList.add("matched");
+    cardEl.classList.add("matched");
+    matchedPairs++;
+
+    // 🔴 여기서 실제로 요소를 DOM에서 제거해서 “정말 사라지게” 처리
+    setTimeout(()=>{
+      if(firstCard && firstCard.parentNode){
+        firstCard.parentNode.removeChild(firstCard);
+      }
+      if(cardEl && cardEl.parentNode){
+        cardEl.parentNode.removeChild(cardEl);
+      }
+      resetTurn();
+
+      if(matchedPairs === WORDS.length){
+        stopTimer();
+        const elapsed = performance.now() - startTime;
+        const secText = formatTime(elapsed);
+        statusText.textContent = `모든 카드를 맞췄습니다! (${secText}초, 시도 ${tries}회)`;
+        saveBest(elapsed);
+      }
+    }, 220);
+  }else{
+    // 오답
+    showToast("다시 한 번 시도해 보세요!", false);
+    setTimeout(()=>{
+      firstCard.classList.remove("flipped");
+      cardEl.classList.remove("flipped");
+      resetTurn();
+    },600);
+  }
+}
+
+function resetTurn(){
+  firstCard = null;
+  lockBoard = false;
+}
+
+function showToast(msg, good=true){
+  toastEl.textContent = msg;
+  toastEl.className = "toast " + (good ? "good" : "bad");
+}
+
+function resetGame(){
+  resetState();
+  buildCards();
+}
+
+resetBtn.addEventListener("click", resetGame);
+
+// 시작
+loadBest();
+resetGame();
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Flashcards</title>
+<style>
+  :root {
+    --front1:#2563eb;
+    --front2:#22c55e;
+    --back:#0b1e3d;
+    --text:#ffffff;
+  }
+  body {
+    margin:0;
+    background:#0b1220;
+    font-family:Arial, sans-serif;
+    color:var(--text);
+  }
+  .wrap {
+    max-width:1200px;
+    margin:0 auto;
+    padding:20px;
+  }
+  h1 {text-align:center;margin-bottom:20px;}
+  .grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:18px;
+  }
+  .card {
+    perspective:1000px;
+  }
+  .inner {
+    position:relative;
+    width:100%;
+    padding-top:130px;
+    transform-style:preserve-3d;
+    transition:transform .6s;
+    cursor:pointer;
+    user-select:none;
+  }
+  .card.flipped .inner {
+    transform:rotateY(180deg);
+  }
+  .face {
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:2rem;
+    font-weight:700;
+    backface-visibility:hidden;
+    border-radius:18px;
+    padding:10px;
+  }
+  .front {color:#fff;}
+  .back {
+    background:var(--back);
+    color:#fff;
+    transform:rotateY(180deg);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Flashcards</h1>
+  <div class="grid" id="cards"></div>
+</div>
+
+<script>
+const words = [
+  {en:"like", ko:"좋아하다"},
+  {en:"eat", ko:"먹다"},
+  {en:"school lunch", ko:"급식"},
+  {en:"glasses", ko:"안경"},
+  {en:"study", ko:"공부하다"},
+  {en:"play", ko:"놀다"},
+  {en:"P.E. class", ko:"체육 수업"},
+  {en:"brother", ko:"형, 남동생"},
+  {en:"hair", ko:"머리카락"},
+  {en:"short", ko:"짧은"},
+  {en:"together", ko:"함께"},
+  {en:"wear", ko:"입다, 착용하다"},
+  {en:"math", ko:"수학"}
+];
+
+const frontColors = [ "var(--front1)", "var(--front2)" ];
+
+const cards = document.getElementById("cards");
+
+words.forEach((w, i) => {
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const inner = document.createElement("div");
+  inner.className = "inner";
+
+  const front = document.createElement("div");
+  front.className = "face front";
+  front.style.background = frontColors[i % 2];
+  front.textContent = "\u200B" + w.en;  // ZWSP 첫소리 강화
+
+  const back = document.createElement("div");
+  back.className = "face back";
+  back.textContent = w.ko;
+
+  inner.appendChild(front);
+  inner.appendChild(back);
+  card.appendChild(inner);
+  cards.appendChild(card);
+
+  card.addEventListener("click", () => {
+    // flip
+    card.classList.toggle("flipped");
+
+    // 영어 TTS
+    const utter = new SpeechSynthesisUtterance(w.en);
+    utter.lang = "en-US";
+    utter.rate = 0.9;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utter);
+  });
+});
+</script>
+</body>
+</html>
