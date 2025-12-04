@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>문장 순서 배열</title>
+<style>
+  :root{
+    --bg1:#dbeafe;
+    --bg2:#ccfbf1;
+    --card:#ffffffcc;
+    --chip:#e2e8f0;
+    --chip-hover:#cbd5e1;
+    --accent:#2563eb;
+    --accent2:#0ea5e9;
+    --correct:#22c55e;
+    --wrong:#ef4444;
+    --text:#0f172a;
+  }
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    padding:20px;
+    color:var(--text);
+    font-size:1.5rem;  /* 🔥 전체 글자 크기 1.5배 */
+  }
+
+  .wrap{
+    width:100%;
+    max-width:650px;   /* 🔥 가로 폭 절반 수준으로 축소 */
+  }
+
+  header h1{
+    font-size:1.6rem;
+    margin:0 0 10px 0;
+  }
+
+  .badge{
+    font-size:1rem;
+    padding:4px 10px;
+    border-radius:999px;
+    background:#f1f5f9;
+    border:1px solid #cbd5e1;
+  }
+
+  .progress-label, .progress-wrap{font-size:1rem;}
+
+  .progress-bar{
+    width:100%;
+    height:10px;
+    background:#e0f2fe;
+    border-radius:999px;
+    overflow:hidden;
+    margin-top:5px;
+  }
+  .progress-fill{
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    transition:.25s;
+  }
+
+  .card{
+    background:var(--card);
+    backdrop-filter:blur(14px);
+    border-radius:20px;
+    padding:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.15);
+    border:1px solid #e2e8f0;
+  }
+  .card.correct-glow{
+    box-shadow:0 0 0 3px rgba(34,197,94,.9),0 0 30px rgba(34,197,94,.7);
+  }
+
+  .ko-sentence{
+    font-size:1.4rem;
+    margin-bottom:12px;
+    font-weight:700;
+  }
+  .hint{
+    font-size:1rem;
+    opacity:.75;
+    margin-bottom:12px;
+  }
+
+  .answer-area{
+    min-height:80px;
+    border-radius:12px;
+    border:2px dashed #cbd5e1;
+    padding:14px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:center;
+    margin-bottom:16px;
+    background:#f8fafc;
+  }
+
+  .chips-area{
+    background:#e0f2fe;
+    border-radius:12px;
+    border:2px solid #bae6fd;
+    padding:14px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    min-height:80px;
+  }
+
+  .chip{
+    background:var(--chip);
+    padding:10px 16px;
+    border-radius:999px;
+    font-size:1.2rem;
+    font-weight:600;
+    cursor:pointer;
+    user-select:none;
+    transition:.15s;
+    box-shadow:0 3px 8px rgba(0,0,0,.1);
+  }
+  .chip:hover{
+    background:var(--chip-hover);
+    transform:translateY(-2px);
+  }
+
+  button{
+    padding:10px 20px;
+    border-radius:999px;
+    border:none;
+    font-size:1.1rem;
+    font-weight:700;
+    cursor:pointer;
+  }
+  button.primary{
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    color:white;
+  }
+  button:not(.primary){
+    background:#e2e8f0;
+    color:#0f172a;
+  }
+  button:disabled{
+    opacity:.5;
+  }
+
+  .controls{
+    display:flex;
+    justify-content:space-between;
+    margin-top:20px;
+  }
+
+  .feedback{
+    margin-top:14px;
+    height:1.2em;
+    font-size:1.2rem;
+  }
+  .feedback.correct{color:var(--correct);}
+  .feedback.wrong{color:var(--wrong);}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>문장 순서 배열 <span class="badge">단어칩 클릭</span></h1>
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span id="counter"></span>
+        <span id="percent"></span>
+      </div>
+      <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+    </div>
+  </header>
+
+  <div class="card" id="card">
+    <div class="ko-sentence" id="koSentence"></div>
+    <div class="hint">아래 단어 칩을 클릭해 영어 문장을 완성하세요.</div>
+
+    <div class="answer-area" id="answerArea">
+      <span id="answerPlaceholder" style="opacity:.5;font-size:1rem;">여기에 단어를 올려 보세요.</span>
+    </div>
+
+    <div class="chips-area" id="chipsArea"></div>
+
+    <div class="controls">
+      <div>
+        <button id="undoBtn">↩ 되돌리기</button>
+        <button id="clearBtn">🧹 지우기</button>
+        <button id="shuffleBtn">🔀 섞기</button>
+      </div>
+      <div>
+        <button id="checkBtn" class="primary">정답 확인</button>
+        <button id="nextBtn">다음</button>
+      </div>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+  </div>
+</div>
+
+<script>
+// ===== 데이터 (식당·주문 세트) =====
+const items = [
+  { ko:"지금 주문해도 될까요?", en:"May I order now?" },
+  { ko:"점심값은 제가 낼게요.", en:"I will pay for lunch." },
+  { ko:"하와이안 피자 한 판 포장해 주세요.", en:"One Hawaiian pizza to go, please." },
+  { ko:"뷔페에서 너무 많이 먹지 마세요.", en:"Don't overeat at the buffet." },
+  { ko:"그 식당은 오후 6시에 문을 엽니다.", en:"The restaurant opens at 6 p.m." },
+  { ko:"팀 것을 제가 내일 계산할게요.", en:"I will pay for Tim tomorrow." },
+  { ko:"치즈 피자 두 판 포장해 주세요.", en:"Two cheese pizzas to go, please." },
+  { ko:"그 중국 음식점에서 항상 과식해요.", en:"I always overeat at the Chinese restaurant." },
+  { ko:"오늘의 메인 요리가 바뀌었습니다.", en:"Today's main dish has changed." },
+  { ko:"오늘의 메인 요리를 주문해도 될까요?", en:"May I order today's main dish?" },
+  { ko:"내일 중국 음식점에서 제가 계산할게요.", en:"I will pay at the Chinese restaurant tomorrow." },
+  { ko:"후라이드치킨 한 마리 포장해 주세요.", en:"One fried chicken to go, please." }
+];
+
+// ===== 변수 =====
+let current = 0;
+let answerTokens = [];
+let bankTokens = [];
+let historyStack = [];
+
+const koSentenceEl = document.getElementById("koSentence");
+const answerArea = document.getElementById("answerArea");
+const chipsArea = document.getElementById("chipsArea");
+const answerPlaceholder = document.getElementById("answerPlaceholder");
+const feedbackEl = document.getElementById("feedback");
+const counterEl = document.getElementById("counter");
+const percentEl = document.getElementById("percent");
+const progressFill = document.getElementById("progressFill");
+const cardEl = document.getElementById("card");
+
+const undoBtn = document.getElementById("undoBtn");
+const clearBtn = document.getElementById("clearBtn");
+const shuffleBtn = document.getElementById("shuffleBtn");
+const checkBtn = document.getElementById("checkBtn");
+const nextBtn = document.getElementById("nextBtn");
+nextBtn.disabled = true;
+
+// ===== 유틸 =====
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function updateProgress(){
+  const now=current+1;
+  const total=items.length;
+  counterEl.textContent = `${now} / ${total}`;
+  percentEl.textContent = `${Math.round(now/total*100)}%`;
+  progressFill.style.width = `${Math.round(now/total*100)}%`;
+}
+
+function renderAnswer(){
+  answerArea.innerHTML="";
+  if(answerTokens.length===0){
+    answerArea.appendChild(answerPlaceholder);
+  } else {
+    answerTokens.forEach((t,i)=>{
+      const chip=document.createElement("div");
+      chip.className="chip";
+      chip.textContent=t;
+      chip.onclick=()=>moveFromAnswer(i);
+      answerArea.appendChild(chip);
+    });
+  }
+}
+
+function renderBank(){
+  chipsArea.innerHTML="";
+  bankTokens.forEach((t,i)=>{
+    const chip=document.createElement("div");
+    chip.className="chip";
+    chip.textContent=t;
+    chip.onclick=()=>moveFromBank(i);
+    chipsArea.appendChild(chip);
+  });
+}
+
+function moveFromBank(i){
+  if(!nextBtn.disabled) return;
+  const tok=bankTokens.splice(i,1)[0];
+  answerTokens.push(tok);
+  historyStack.push({type:"bankToAnswer", tok, i});
+  renderAnswer();
+  renderBank();
+}
+
+function moveFromAnswer(i){
+  if(!nextBtn.disabled) return;
+  const tok=answerTokens.splice(i,1)[0];
+  bankTokens.push(tok);
+  historyStack.push({type:"answerToBank", tok, i});
+  renderAnswer();
+  renderBank();
+}
+
+undoBtn.onclick=function(){
+  const h=historyStack.pop();
+  if(!h) return;
+  if(h.type==="bankToAnswer"){
+    answerTokens.pop();
+    bankTokens.splice(h.i,0,h.tok);
+  }else if(h.type==="answerToBank"){
+    bankTokens.pop();
+    answerTokens.splice(h.i,0,h.tok);
+  }
+  renderAnswer();
+  renderBank();
+};
+
+clearBtn.onclick=function(){
+  if(!nextBtn.disabled){
+    return;
+  }
+  bankTokens = bankTokens.concat(answerTokens);
+  answerTokens=[];
+  historyStack.push({type:"clear"});
+  renderAnswer();
+  renderBank();
+};
+
+shuffleBtn.onclick=function(){
+  if(!nextBtn.disabled) return;
+  bankTokens=shuffle(bankTokens);
+  renderBank();
+};
+
+checkBtn.onclick=function(){
+  const correct=items[current].en;
+  const user=answerTokens.join(" ");
+  if(user===correct){
+    feedbackEl.textContent="정답입니다! 👍";
+    feedbackEl.className="feedback correct";
+    nextBtn.disabled=false;
+    cardEl.classList.add("correct-glow");
+  } else {
+    feedbackEl.textContent="아직이에요. 다시 해보세요!";
+    feedbackEl.className="feedback wrong";
+  }
+};
+
+nextBtn.onclick=function(){
+  if(current < items.length-1){
+    current++;
+    load(current);
+  }else{
+    feedbackEl.textContent="모든 문장을 완성했습니다! 🎉";
+    feedbackEl.className="feedback correct";
+  }
+};
+
+function load(i){
+  const item=items[i];
+  koSentenceEl.textContent=item.ko;
+  bankTokens=shuffle(item.en.split(" "));
+  answerTokens=[];
+  historyStack=[];
+  nextBtn.disabled=true;
+  feedbackEl.textContent="";
+  feedbackEl.className="feedback";
+  cardEl.classList.remove("correct-glow");
+  renderAnswer();
+  renderBank();
+  updateProgress();
+}
+
+// 첫 문제 로드
+load(current);
+</script>
+</body>
+</html>

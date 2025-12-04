@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>단어 매칭 게임 – order 세트</title>
+<style>
+  :root{
+    --bg:#0b1220;
+    --panel:#0f172acc;
+    --text:#e5e7eb;
+    --card-en:#38bdf8;   /* 영어 카드: 스카이 블루 */
+    --card-ko:#22c55e;   /* 뜻 카드: 연두색 */
+    --card-border:#0f172a;
+    --accent:#fbbf24;
+    --good:#22c55e;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    height:100%;
+    background:radial-gradient(circle at 0% 0%, #1d2958 0, #020617 55%);
+    font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto;
+    color:var(--text);
+  }
+  .wrap{
+    max-width:1100px;
+    margin:0 auto;
+    padding:16px;
+  }
+  header{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  header h1{
+    margin:0;
+    font-size:1.5rem;
+  }
+  .info{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    font-size:.95rem;
+  }
+  .badge{
+    padding:4px 10px;
+    border-radius:999px;
+    background:#02061766;
+    border:1px solid #1f2937;
+  }
+  .btn{
+    padding:6px 12px;
+    border-radius:999px;
+    border:none;
+    cursor:pointer;
+    font-size:.9rem;
+    background:linear-gradient(135deg,#38bdf8,#22c55e);
+    color:#0f172a;
+    font-weight:600;
+    box-shadow:0 0 0 1px #0f172a,0 8px 20px #00000080;
+  }
+  .btn:active{transform:translateY(1px);box-shadow:0 0 0 1px #0f172a,0 4px 12px #00000080;}
+
+  .board{
+    margin-top:8px;
+    background:radial-gradient(circle at top,#1e293b 0,#020617 60%);
+    border-radius:18px;
+    padding:18px;
+    box-shadow:0 18px 45px #000000aa;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:14px;
+  }
+
+  .card{
+    position:relative;
+    padding:12px 10px;
+    min-height:80px;
+    border-radius:16px;
+    border:1px solid var(--card-border);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    cursor:pointer;
+    font-size:1.05rem;
+    font-weight:600;
+    transition:
+      transform .18s ease,
+      box-shadow .18s ease,
+      background .18s ease,
+      opacity .25s ease;
+    box-shadow:0 6px 16px #00000070;
+    user-select:none;
+  }
+  .card.en{
+    background:radial-gradient(circle at 0% 0%,#7dd3fc 0,var(--card-en) 45%,#0369a1 100%);
+    color:#0f172a;
+  }
+  .card.ko{
+    background:radial-gradient(circle at 0% 0%,#bbf7d0 0,var(--card-ko) 45%,#15803d 100%);
+    color:#022c22;
+  }
+  .card.disabled{
+    opacity:0;
+    pointer-events:none;
+    box-shadow:none;
+  }
+  .card.selected{
+    transform:translateY(-4px) scale(1.03);
+    box-shadow:0 10px 26px #000000d0;
+    outline:2px solid var(--accent);
+    outline-offset:2px;
+  }
+  .card:hover:not(.disabled):not(.selected){
+    transform:translateY(-2px);
+    box-shadow:0 8px 22px #000000b0;
+  }
+
+  .status-bar{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .status-group{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    align-items:center;
+    font-size:.9rem;
+  }
+  .label{
+    opacity:.8;
+  }
+  .value{
+    font-weight:700;
+    color:var(--accent);
+    min-width:3ch;
+    text-align:right;
+  }
+  .value.best{
+    color:var(--good);
+  }
+
+  .message{
+    margin-top:14px;
+    font-size:.98rem;
+    min-height:1.4em;
+  }
+  .message span.win{
+    color:var(--good);
+    font-weight:700;
+  }
+
+  @media (max-width:600px){
+    header h1{font-size:1.2rem;}
+    .card{min-height:72px;font-size:.95rem;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>단어 매칭 게임</h1>
+    <div class="info">
+      <div class="badge">order · pay · lunch · to go · overeat …</div>
+      <button class="btn" id="restartBtn">다시 시작</button>
+    </div>
+  </header>
+
+  <div class="board">
+    <div class="status-bar">
+      <div class="status-group">
+        <span class="label">⏱ 시간:</span>
+        <span class="value" id="time">0.0</span><span>초</span>
+      </div>
+      <div class="status-group">
+        <span class="label">🏆 최고 기록:</span>
+        <span class="value best" id="best">-</span><span>초</span>
+      </div>
+      <div class="status-group">
+        <span class="label">✔ 남은 카드 쌍:</span>
+        <span class="value" id="remain"></span><span>쌍</span>
+      </div>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+    <div class="message" id="msg"></div>
+  </div>
+</div>
+
+<script>
+const PAIRS = [
+  ["order","주문하다"],
+  ["pay","지불하다"],
+  ["lunch","점심"],
+  ["to go","포장하다, 가져가다"],
+  ["overeat","과식하다"],
+  ["change","잔돈, 바꾸다"],
+  ["restaurant","식당, 레스토랑"],
+  ["open","열다, 영업 중인"],
+  ["Chinese","중식, 중국의"],
+  ["main dish","메인 요리"],
+  ["buffet","뷔페"],
+  ["take order","주문을 받다"]
+];
+
+const grid = document.getElementById("grid");
+const timeEl = document.getElementById("time");
+const bestEl = document.getElementById("best");
+const remainEl = document.getElementById("remain");
+const msgEl = document.getElementById("msg");
+const restartBtn = document.getElementById("restartBtn");
+
+const BEST_KEY = "match_best_order_set_v1";
+
+let cards = [];
+let firstSel = null;
+let secondSel = null;
+let lock = false;
+let remainingPairs = PAIRS.length;
+let startTime = null;
+let timerId = null;
+
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function loadBest(){
+  const val = localStorage.getItem(BEST_KEY);
+  if(!val){bestEl.textContent="-";return;}
+  bestEl.textContent = Number(val).toFixed(1);
+}
+
+function startTimer(){
+  if(timerId) return;
+  startTime = performance.now();
+  timerId = setInterval(()=>{
+    const t = (performance.now()-startTime)/1000;
+    timeEl.textContent = t.toFixed(1);
+  },100);
+}
+
+function stopTimer(){
+  if(timerId){
+    clearInterval(timerId);
+    timerId = null;
+  }
+}
+
+function setMessage(text,isWin=false){
+  if(isWin){
+    msgEl.innerHTML = `<span class="win">${text}</span>`;
+  }else{
+    msgEl.textContent = text;
+  }
+}
+
+function createCards(){
+  grid.innerHTML = "";
+  cards = [];
+  remainingPairs = PAIRS.length;
+  remainEl.textContent = remainingPairs;
+  setMessage("");
+
+  // en/ko 카드 만들기
+  let id = 0;
+  const temp = [];
+  PAIRS.forEach(([en,ko])=>{
+    const pairId = id++;
+    temp.push({pairId,type:"en",text:en});
+    temp.push({pairId,type:"ko",text:ko});
+  });
+
+  shuffle(temp);
+
+  temp.forEach((info,idx)=>{
+    const div = document.createElement("div");
+    div.className = "card " + info.type;
+    div.textContent = info.text;
+    div.dataset.index = idx;
+    grid.appendChild(div);
+    cards.push({el:div, ...info, matched:false});
+  });
+}
+
+function resetSelection(){
+  if(firstSel){ firstSel.el.classList.remove("selected"); }
+  if(secondSel){ secondSel.el.classList.remove("selected"); }
+  firstSel = null;
+  secondSel = null;
+}
+
+function handleClick(e){
+  const cardEl = e.target.closest(".card");
+  if(!cardEl || lock) return;
+
+  const idx = Number(cardEl.dataset.index);
+  const card = cards[idx];
+  if(card.matched) return;
+
+  // 타이머 시작: 첫 클릭 시점
+  if(!timerId) startTimer();
+
+  // 같은 카드 두 번 클릭 방지
+  if(firstSel && firstSel.el === cardEl) return;
+
+  cardEl.classList.add("selected");
+
+  if(!firstSel){
+    firstSel = card;
+    return;
+  }
+
+  secondSel = card;
+  lock = true;
+
+  // 매칭 성공 여부
+  if(firstSel.pairId === secondSel.pairId && firstSel.type !== secondSel.type){
+    // 성공
+    setTimeout(()=>{
+      firstSel.matched = true;
+      secondSel.matched = true;
+      firstSel.el.classList.add("disabled");
+      secondSel.el.classList.add("disabled");
+      resetSelection();
+      remainingPairs--;
+      remainEl.textContent = remainingPairs;
+      lock = false;
+
+      if(remainingPairs === 0){
+        stopTimer();
+        const finalTime = Number(timeEl.textContent);
+        setMessage(`모든 카드를 맞췄어요! (${finalTime.toFixed(1)}초)`,true);
+
+        const best = localStorage.getItem(BEST_KEY);
+        if(!best || finalTime < Number(best)){
+          localStorage.setItem(BEST_KEY,finalTime);
+          loadBest();
+          setTimeout(()=>{
+            setMessage(`새로운 최고 기록입니다! 🎉 (${finalTime.toFixed(1)}초)`,true);
+          },400);
+        }
+      }else{
+        setMessage("잘했어요! 계속해 볼까요?");
+      }
+    },320);
+  }else{
+    // 실패
+    setTimeout(()=>{
+      resetSelection();
+      lock = false;
+      setMessage("다시 시도해 보세요.");
+    },450);
+  }
+}
+
+function restart(){
+  stopTimer();
+  timeEl.textContent = "0.0";
+  firstSel = null;
+  secondSel = null;
+  lock = false;
+  createCards();
+}
+
+grid.addEventListener("click",handleClick);
+restartBtn.addEventListener("click",restart);
+
+// 초기화
+loadBest();
+restart();
+</script>
+</body>
+</html>
