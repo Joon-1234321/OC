@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>단어칩 클릭해서 문장 완성하기 - Cooking (뜻 포함)</title>
+<style>
+  :root{
+    --bg1:#dbeafe;
+    --bg2:#ccfbf1;
+    --card:#ffffffcc;
+    --chip:#e2e8f0;
+    --chip-hover:#cbd5e1;
+    --accent:#2563eb;
+    --accent2:#0ea5e9;
+    --correct:#22c55e;
+    --wrong:#ef4444;
+    --text:#0f172a;
+  }
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    padding:20px;
+    color:var(--text);
+  }
+
+  .wrap{
+    width:100%;
+    max-width:960px;
+  }
+
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:12px;
+    margin-bottom:16px;
+    flex-wrap:wrap;
+  }
+  h1{
+    margin:0;
+    font-size:clamp(20px,3vw,28px);
+    font-weight:900;
+    color:#1e293b;
+  }
+  .info{
+    font-size:0.9rem;
+    opacity:0.8;
+  }
+
+  /* hint box */
+  .hint-box{
+    background:#ffffffaa;
+    border-left:5px solid var(--accent);
+    padding:10px 12px;
+    border-radius:10px;
+    backdrop-filter:blur(8px);
+    margin-bottom:14px;
+    font-size:1rem;
+    color:#1e3a8a;
+    font-weight:600;
+  }
+
+  .card{
+    background:var(--card);
+    border-radius:20px;
+    box-shadow:0 18px 40px #00000022;
+    padding:18px 18px 22px;
+    backdrop-filter:blur(10px);
+  }
+
+  .top-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
+    flex-wrap:wrap;
+  }
+
+  .pill{
+    border-radius:999px;
+    padding:6px 12px;
+    background:#eff6ff;
+    font-size:0.9rem;
+    border:1px solid #bfdbfe;
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+  }
+
+  .progress-wrap{
+    flex:1;
+    max-width:260px;
+  }
+  .progress-bar{
+    width:100%;
+    height:8px;
+    border-radius:999px;
+    background:#e5e7eb;
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    width:0%;
+    border-radius:999px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    transition:width .3s ease;
+  }
+  .progress-text{
+    text-align:right;
+    font-size:0.8rem;
+    margin-top:2px;
+    opacity:0.8;
+  }
+
+  .sentence-area{
+    min-height:70px;
+    border-radius:14px;
+    border:1px dashed #cbd5f5;
+    background:#eff6ff80;
+    padding:10px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    align-items:center;
+    margin-bottom:10px;
+  }
+  .placeholder{
+    font-size:0.9rem;
+    opacity:0.6;
+  }
+
+  .chips-area{
+    margin-top:10px;
+    border-radius:14px;
+    border:1px solid #e2e8f0;
+    background:#f8fafc;
+    padding:10px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+
+  .chip{
+    padding:8px 12px;
+    border-radius:999px;
+    background:var(--chip);
+    font-size:1rem;
+    cursor:pointer;
+    user-select:none;
+    transition:transform .12s ease,background .12s ease,box-shadow .12s ease;
+    box-shadow:0 2px 4px #00000020;
+  }
+  .chip:hover{
+    background:var(--chip-hover);
+    transform:translateY(-1px);
+    box-shadow:0 4px 8px #00000026;
+  }
+
+  .chip.disabled{
+    opacity:0.35;
+    cursor:default;
+    box-shadow:none;
+    transform:none;
+  }
+
+  .answer-chip{
+    background:#2563eb;
+    color:white;
+  }
+
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+    justify-content:flex-end;
+  }
+  button{
+    border:none;
+    padding:8px 14px;
+    border-radius:999px;
+    font-size:0.9rem;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+  }
+  .btn-main{
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:white;
+    font-weight:700;
+  }
+  .btn-sub{
+    background:#e5e7eb;
+    color:#111827;
+  }
+
+  .feedback{
+    min-height:1.4em;
+    margin-top:6px;
+    font-size:0.95rem;
+  }
+  .feedback.ok{color:var(--correct);}
+  .feedback.no{color:var(--wrong);}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>단어칩을 클릭해서 문장을 완성하세요</h1>
+      <div class="info">힌트를 보고 단어칩을 눌러 문장을 완성해 보세요.</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+      <div id="progressText" class="progress-text">1 / 13</div>
+    </div>
+  </header>
+
+  <section class="card">
+
+    <!-- 🔵 한국어 뜻 표시 영역 -->
+    <div id="hintBox" class="hint-box">힌트</div>
+
+    <div class="top-row">
+      <div class="pill">문장 <span id="currentIdx">1</span> / <span id="totalCount">13</span></div>
+      <div class="pill">정답 개수: <span id="correctCount">0</span></div>
+    </div>
+
+    <div class="sentence-area" id="answerArea">
+      <span class="placeholder" id="placeholder">단어칩을 클릭해서 문장을 완성해 보세요.</span>
+    </div>
+
+    <div class="chips-area" id="chipsArea"></div>
+
+    <div class="controls">
+      <button class="btn-sub" id="btnUndo">↩ 되돌리기</button>
+      <button class="btn-sub" id="btnClear">🧹 지우기</button>
+      <button class="btn-sub" id="btnShuffle">🔀 다시 섞기</button>
+      <button class="btn-main" id="btnCheck">✅ 정답 확인</button>
+      <button class="btn-main" id="btnNext" style="display:none;">➡ 다음 문장</button>
+    </div>
+
+    <div id="feedback" class="feedback"></div>
+  </section>
+</div>
+
+<script>
+// 영어 문장 + 뜻 추가
+const DATA = [
+  {en:"He makes garlic oil.", ko:"그는 마늘 기름을 만든다."},
+  {en:"She chops onions.", ko:"그녀는 양파를 썬다."},
+  {en:"I put vegetables in oil.", ko:"나는 기름에 채소를 넣는다."},
+  {en:"She mixes the rice with them.", ko:"그녀는 밥을 그것들과 섞는다."},
+  {en:"We don't stir-fry them for too long.", ko:"우리는 그것들을 너무 오래 볶지 않는다."},
+  {en:"He makes fried rice.", ko:"그는 볶음밥을 만든다."},
+  {en:"She peels the onion.", ko:"그녀는 양파를 껍질 벗긴다."},
+  {en:"We roasted the meat.", ko:"우리는 고기를 구웠다."},
+  {en:"He puts vegetables in the rice.", ko:"그는 밥에 채소를 넣는다."},
+  {en:"She doesn't cook them for too long.", ko:"그녀는 그것들을 너무 오래 요리하지 않는다."},
+  {en:"He stir-fried vegetables.", ko:"그는 채소를 볶았다."},
+  {en:"She will peel the potatoes.", ko:"그녀는 감자를 껍질 벗길 것이다."},
+  {en:"They will chop the onions.", ko:"그들은 양파를 썰 것이다."}
+];
+
+const totalCountEl = document.getElementById("totalCount");
+const currentIdxEl = document.getElementById("currentIdx");
+const correctCountEl = document.getElementById("correctCount");
+const hintBox = document.getElementById("hintBox");
+
+const progressFill = document.getElementById("progressFill");
+const progressText = document.getElementById("progressText");
+
+const chipsArea = document.getElementById("chipsArea");
+const answerArea = document.getElementById("answerArea");
+const placeholder = document.getElementById("placeholder");
+const feedback = document.getElementById("feedback");
+
+const btnUndo = document.getElementById("btnUndo");
+const btnClear = document.getElementById("btnClear");
+const btnShuffle = document.getElementById("btnShuffle");
+const btnCheck = document.getElementById("btnCheck");
+const btnNext = document.getElementById("btnNext");
+
+let current = 0;
+let correctCount = 0;
+let answerOrder = [];
+
+totalCountEl.textContent = DATA.length;
+
+// 📌 문장 섞기 함수
+function shuffle(arr){
+  return arr
+    .map((v,i)=>({v, i, r:Math.random()}))
+    .sort((a,b)=>a.r-b.r)
+    .map(obj=>({word:obj.v, index:obj.i}));
+}
+
+// 📌 진행도 업데이트
+function updateProgress(){
+  const p = ((current+1)/DATA.length)*100;
+  progressFill.style.width = p + "%";
+  progressText.textContent = (current+1) + " / " + DATA.length;
+  currentIdxEl.textContent = current+1;
+  correctCountEl.textContent = correctCount;
+
+  // 🔵 한국어 뜻 업데이트
+  hintBox.textContent = DATA[current].ko;
+}
+
+// 📌 칩 렌더링
+function renderChips(){
+  chipsArea.innerHTML = "";
+  const parts = DATA[current].en.split(" ");
+  const shuffled = shuffle(parts);
+
+  shuffled.forEach((item)=>{
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.textContent = item.word;
+    chip.dataset.index = item.index;
+
+    chip.addEventListener("click", ()=>{
+      if(chip.classList.contains("disabled")) return;
+      chip.classList.add("disabled");
+
+      placeholder.style.display="none";
+
+      const aChip = document.createElement("button");
+      aChip.className="chip answer-chip";
+      aChip.textContent=item.word;
+      aChip.dataset.index=item.index;
+
+      answerOrder.push({word:item.word, index:item.index, originChip:chip});
+      answerArea.appendChild(aChip);
+
+      // 다시 빼기 기능
+      aChip.addEventListener("click", ()=>{
+        answerArea.removeChild(aChip);
+        const pos = answerOrder.findIndex(o=>o.originChip===chip);
+        if(pos>=0) answerOrder.splice(pos,1);
+        chip.classList.remove("disabled");
+        if(answerOrder.length===0) placeholder.style.display="inline";
+      });
+    });
+
+    chipsArea.appendChild(chip);
+  });
+}
+
+// 📌 초기화
+function clearAnswer(){
+  answerOrder.forEach(o=>o.originChip.classList.remove("disabled"));
+  answerOrder=[];
+  answerArea.innerHTML="";
+  placeholder.style.display="inline";
+}
+
+function undoAnswer(){
+  if(answerOrder.length===0) return;
+  const last=answerOrder.pop();
+  last.originChip.classList.remove("disabled");
+  const chips = answerArea.querySelectorAll(".answer-chip");
+  if(chips.length>0){
+    answerArea.removeChild(chips[chips.length-1]);
+  }
+  if(answerOrder.length===0) placeholder.style.display="inline";
+}
+
+// 📌 정답 확인
+function checkAnswer(){
+  const user = answerOrder.map(o=>o.word).join(" ");
+  const correct = DATA[current].en;
+
+  if(user === correct){
+    feedback.textContent="정답입니다! 잘했어요 👍";
+    feedback.className="feedback ok";
+    correctCount++;
+    correctCountEl.textContent=correctCount;
+    btnCheck.style.display="none";
+    btnNext.style.display="inline-flex";
+  }else{
+    feedback.textContent="아쉬워요. 순서를 다시 살펴보세요.";
+    feedback.className="feedback no";
+  }
+}
+
+function nextSentence(){
+  current++;
+  if(current >= DATA.length){
+    alert(`🎉 모든 문장을 완료했습니다!\n정답: ${correctCount} / ${DATA.length}`);
+    current=0;
+    correctCount=0;
+  }
+  feedback.textContent="";
+  feedback.className="feedback";
+  btnNext.style.display="none";
+  btnCheck.style.display="inline-flex";
+
+  clearAnswer();
+  renderChips();
+  updateProgress();
+}
+
+// 이벤트 연결
+btnClear.addEventListener("click", clearAnswer);
+btnUndo.addEventListener("click", undoAnswer);
+btnShuffle.addEventListener("click", ()=>{
+  const has = answerOrder.length>0;
+  clearAnswer();
+  renderChips();
+  if(has){
+    feedback.textContent="단어칩을 다시 섞었어요.";
+    feedback.className="feedback";
+  }
+});
+btnCheck.addEventListener("click", checkAnswer);
+btnNext.addEventListener("click", nextSentence);
+
+// 초기 실행
+renderChips();
+updateProgress();
+</script>
+</body>
+</html>
