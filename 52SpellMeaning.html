@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>단어 5초 보기 → 스펠링 → 뜻 맞추기 (3단계)</title>
+<style>
+  :root{
+    --bg:#0b1220;
+    --panel:#0f1b36cc;
+    --text:#e5e7eb;
+    --accent:#38bdf8;
+    --accent2:#22c55e;
+    --wrong:#ef4444;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    height:100%;
+    font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto;
+    background:radial-gradient(1200px 700px at 50% -10%, #1b2a55 0%, var(--bg) 60%);
+    color:var(--text);
+  }
+  .wrap{
+    max-width:900px;
+    margin:0 auto;
+    padding:18px;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:12px;
+    font-size:0.95rem;
+    opacity:0.9;
+  }
+  .title{
+    font-size:1.1rem;
+    font-weight:600;
+  }
+  main{
+    background:var(--panel);
+    border-radius:18px;
+    padding:20px 18px 22px;
+    box-shadow:0 18px 40px #0007;
+  }
+  .stage{display:none;}
+  .stage.active{display:block;}
+
+  /* 1단계: 단어 보기 */
+  .show-card{
+    border-radius:16px;
+    border:1px solid #4b5563aa;
+    padding:26px 12px;
+    text-align:center;
+    overflow:hidden;
+  }
+  .show-card.anim{
+    animation:sparkle 5s ease-in-out, fadeOut 0.8s ease-in-out 4.2s forwards;
+  }
+  .show-word{
+    font-size:3rem;
+    font-weight:700;
+    margin-bottom:12px;
+  }
+  .show-guide{font-size:1rem;opacity:0.85;}
+
+  @keyframes sparkle{
+    0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,0);}
+    20%{box-shadow:0 0 16px 2px rgba(56,189,248,0.7);}
+    40%{box-shadow:0 0 10px 1px rgba(56,189,248,0.4);}
+    60%{box-shadow:0 0 18px 2px rgba(96,165,250,0.8);}
+    80%{box-shadow:0 0 10px 1px rgba(96,165,250,0.4);}
+  }
+  @keyframes fadeOut{
+    to{opacity:0;}
+  }
+
+  /* 입력, 버튼 공통 */
+  input{
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid #4b5563;
+    background:#020617;
+    color:var(--text);
+    font-size:1.1rem;
+    width:100%;
+    margin-top:8px;
+  }
+  input:focus{
+    outline:none;
+    border-color:var(--accent);
+    box-shadow:0 0 0 1px rgba(56,189,248,0.6);
+  }
+
+  button{
+    border:none;
+    border-radius:999px;
+    padding:8px 18px;
+    font-size:0.95rem;
+    cursor:pointer;
+    font-weight:500;
+    margin-top:8px;
+  }
+  #spellCheckBtn, #nextStepBtn{
+    background:linear-gradient(135deg,var(--accent),#4f46e5);
+    color:white;
+  }
+  #meaningCheckBtn, #nextWordBtn{
+    background:linear-gradient(135deg,var(--accent2),#16a34a);
+    color:white;
+  }
+
+  .feedback{
+    margin-top:6px;
+    min-height:1.2em;
+    font-size:1rem;
+  }
+  .ok{color:var(--accent2);}
+  .no{color:var(--wrong);}
+
+  /* 3단계 선택지 */
+  .choices{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:10px;
+    margin-top:14px;
+  }
+  .choice{
+    border-radius:10px;
+    border:1px solid #4b5563;
+    padding:10px;
+    background:#020617;
+    cursor:pointer;
+    font-size:1rem;
+    text-align:center;
+    transition:.2s;
+  }
+  .choice:hover{
+    border-color:var(--accent);
+    transform:translateY(-2px);
+  }
+  .choice.selected{
+    border-color:var(--accent2);
+    background:#064e3b;
+  }
+
+  /* 완료 화면 */
+  .done-msg{
+    text-align:center;
+    padding:30px 10px;
+    font-size:1.2rem;
+  }
+  .done-title{
+    font-size:1.4rem;
+    margin-bottom:10px;
+  }
+
+  @media (max-width:600px){
+    .show-word{font-size:2.3rem;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">단어 5초 보기 → 스펠링 → 뜻 맞추기</div>
+    <div><span id="currentIdx">1</span> / <span id="totalCount">0</span></div>
+  </header>
+
+  <main>
+
+    <!-- 1단계: 단어 보기 -->
+    <section id="stage1" class="stage active">
+      <div class="show-card" id="showCard">
+        <div class="show-word" id="showWord"></div>
+        <div class="show-guide">5초 동안 단어를 보고 외우세요.</div>
+      </div>
+    </section>
+
+    <!-- 2단계: 스펠링 -->
+    <section id="stage2" class="stage">
+      <div>스펠링을 입력해 보세요.</div>
+      <input id="spellInput" placeholder="스펠링 입력">
+      <div class="feedback" id="spellFeedback"></div>
+      <button id="spellCheckBtn">스펠링 확인</button>
+      <button id="nextStepBtn" style="display:none;">뜻 고르기 단계로</button>
+    </section>
+
+    <!-- 3단계: 뜻 고르기 -->
+    <section id="stage3" class="stage">
+      <div>알맞은 뜻을 선택하세요.</div>
+      <div class="choices" id="choices"></div>
+      <div class="feedback" id="meaningFeedback"></div>
+      <button id="meaningCheckBtn">정답 확인</button>
+      <button id="nextWordBtn" style="display:none;">다음 단어</button>
+    </section>
+
+    <!-- 완료 -->
+    <section id="stageDone" class="stage">
+      <div class="done-msg">
+        <div class="done-title">수고했어요! 🎉</div>
+        모든 단어를 연습했습니다.
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+const items = [
+  {word:"pillow", meaning:"베개"},
+  {word:"clean", meaning:"깨끗한"},
+  {word:"hotel", meaning:"호텔"},
+  {word:"over there", meaning:"저기"},
+  {word:"ticket", meaning:"표, 티켓"},
+  {word:"cheap", meaning:"값이 싼"},
+  {word:"night view", meaning:"야경"},
+  {word:"wonderful", meaning:"멋진, 훌륭한"},
+  {word:"room", meaning:"방"},
+  {word:"very", meaning:"아주"},
+  {word:"concert", meaning:"콘서트"},
+  {word:"delicious", meaning:"맛있는"}
+];
+
+const stage1 = document.getElementById("stage1");
+const stage2 = document.getElementById("stage2");
+const stage3 = document.getElementById("stage3");
+const stageDone = document.getElementById("stageDone");
+
+const showCard = document.getElementById("showCard");
+const showWord = document.getElementById("showWord");
+
+const spellInput = document.getElementById("spellInput");
+const spellFeedback = document.getElementById("spellFeedback");
+const spellCheckBtn = document.getElementById("spellCheckBtn");
+const nextStepBtn = document.getElementById("nextStepBtn");
+
+const choicesBox = document.getElementById("choices");
+const meaningFeedback = document.getElementById("meaningFeedback");
+const meaningCheckBtn = document.getElementById("meaningCheckBtn");
+const nextWordBtn = document.getElementById("nextWordBtn");
+
+const curIdx = document.getElementById("currentIdx");
+const totalCount = document.getElementById("totalCount");
+
+totalCount.textContent = items.length;
+
+let current = 0;
+let selectedChoice = null;
+
+function showStage(stage){
+  [stage1, stage2, stage3, stageDone].forEach(s=>s.classList.remove("active"));
+  stage.classList.add("active");
+}
+
+function startShow(){
+  const item = items[current];
+  curIdx.textContent = current+1;
+
+  showWord.textContent = item.word;
+  showStage(stage1);
+
+  showCard.classList.remove("anim");
+  void showCard.offsetWidth;
+  showCard.classList.add("anim");
+
+  setTimeout(()=>{
+    startSpell();
+  },5000);
+}
+
+function startSpell(){
+  showStage(stage2);
+  spellInput.value = "";
+  spellFeedback.textContent = "";
+  spellFeedback.className = "feedback";
+  nextStepBtn.style.display = "none";
+  spellCheckBtn.disabled = false;
+  spellInput.focus();
+}
+
+// 스펠링 확인 로직 (버튼/엔터 공용)
+function checkSpell(autoNext){
+  const item = items[current];
+  const user = spellInput.value.trim().toLowerCase();
+  const correct = item.word.toLowerCase();
+
+  if(!user){
+    spellFeedback.textContent = "스펠링을 입력해 보세요.";
+    spellFeedback.className = "feedback no";
+    return;
+  }
+
+  if(user === correct){
+    spellFeedback.textContent = "스펠링 정답입니다! 👍";
+    spellFeedback.className = "feedback ok";
+    spellCheckBtn.disabled = true;
+
+    if(autoNext){
+      // 엔터로 맞으면 바로 뜻 고르기로 이동
+      startMeaning();
+    }else{
+      // 버튼을 눌렀을 때는 단계 이동 버튼도 제공
+      nextStepBtn.style.display = "inline-block";
+    }
+  }else{
+    spellFeedback.textContent = "스펠링을 다시 확인해 보세요.";
+    spellFeedback.className = "feedback no";
+  }
+}
+
+spellCheckBtn.addEventListener("click", ()=>{
+  checkSpell(false);
+});
+
+// 엔터 키로 확인 + 정답이면 자동 3단계 이동
+spellInput.addEventListener("keydown", (e)=>{
+  if(e.key === "Enter"){
+    e.preventDefault();
+    checkSpell(true);
+  }
+});
+
+nextStepBtn.addEventListener("click", ()=>{
+  startMeaning();
+});
+
+function shuffle(arr){
+  return arr.map(v=>[Math.random(),v])
+            .sort((a,b)=>a[0]-b[0])
+            .map(v=>v[1]);
+}
+
+function buildChoices(item){
+  choicesBox.innerHTML = "";
+  meaningFeedback.textContent = "";
+  meaningFeedback.className = "feedback";
+  selectedChoice = null;
+
+  const others = items.filter(i=>i!==item).map(i=>i.meaning);
+  const opts = shuffle([item.meaning, ...others.slice(0,3)]);
+
+  opts.forEach(text=>{
+    const div = document.createElement("div");
+    div.className = "choice";
+    div.textContent = text;
+    div.dataset.correct = (text === item.meaning);
+    div.onclick = ()=>{
+      document.querySelectorAll(".choice").forEach(c=>c.classList.remove("selected"));
+      div.classList.add("selected");
+      selectedChoice = div;
+    };
+    choicesBox.appendChild(div);
+  });
+}
+
+function startMeaning(){
+  const item = items[current];
+  showStage(stage3);
+  buildChoices(item);
+  meaningFeedback.textContent = "";
+  meaningFeedback.className = "feedback";
+  meaningCheckBtn.style.display = "inline-block";
+  nextWordBtn.style.display = "none";
+}
+
+meaningCheckBtn.addEventListener("click", ()=>{
+  if(!selectedChoice){
+    meaningFeedback.textContent = "뜻을 하나 선택하세요.";
+    meaningFeedback.className = "feedback no";
+    return;
+  }
+
+  if(selectedChoice.dataset.correct === "true"){
+    meaningFeedback.textContent = "정답입니다! 👏";
+    meaningFeedback.className = "feedback ok";
+    meaningCheckBtn.style.display = "none";
+    nextWordBtn.style.display = "inline-block";
+  }else{
+    meaningFeedback.textContent = "다시 선택해 보세요.";
+    meaningFeedback.className = "feedback no";
+  }
+});
+
+nextWordBtn.addEventListener("click", ()=>{
+  current++;
+  if(current < items.length){
+    startShow();
+  }else{
+    showStage(stageDone);
+  }
+});
+
+// 시작
+startShow();
+</script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>단어 매칭게임</title>
+<style>
+  :root{
+    --bg:#e0f2fe;
+    --en-card:#dbeafe;     /* 영단어 카드 색 */
+    --ko-card:#dcfce7;     /* 뜻 카드 색 */
+    --text:#0f172a;
+    --accent:#38bdf8;
+    --correct:#22c55e;
+  }
+  body{
+    margin:0;
+    background:linear-gradient(135deg,#bae6fd,#e0f2fe);
+    font-family:system-ui;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:20px;
+  }
+  h2{margin:10px 0 5px;color:#0f172a;}
+  #info{margin-bottom:15px;font-size:1.1rem;color:#0f172a;}
+
+  #game{
+    width:100%;
+    max-width:900px;
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:15px;
+  }
+
+  .card{
+    border-radius:12px;
+    padding:20px 10px;
+    text-align:center;
+    font-size:1.3rem;
+    font-weight:600;
+    cursor:pointer;
+    box-shadow:0 4px 8px #0002;
+    transition:.2s;
+    user-select:none;
+    color:var(--text);
+  }
+  .card:hover{
+    transform:scale(1.03);
+  }
+
+  .en{background:var(--en-card);} /* 영단어 색 */
+  .ko{background:var(--ko-card);} /* 뜻 카드 색 */
+
+  .hide{
+    visibility:hidden;
+    pointer-events:none;
+  }
+  .matched{
+    background:var(--correct) !important;
+    color:white !important;
+  }
+</style>
+</head>
+<body>
+
+<h2>단어 매칭게임</h2>
+<div id="info">
+  시간: <span id="time">0.0</span>초  
+  | 최고기록: <span id="best">-</span>
+</div>
+
+<div id="game"></div>
+
+<script>
+const data = [
+  ["pillow","베개"],
+  ["clean","깨끗한"],
+  ["hotel","호텔"],
+  ["over there","저기"],
+  ["ticket","표, 티켓"],
+  ["cheap","값이 싼"],
+  ["night view","야경"],
+  ["wonderful","멋진, 훌륭한"],
+  ["room","방"],
+  ["very","아주"],
+  ["concert","콘서트"],
+  ["delicious","맛있는"]
+];
+
+let cards = [];
+data.forEach(([en,ko])=>{
+  cards.push({text:en, pair:ko, type:"en"});
+  cards.push({text:ko, pair:en, type:"ko"});
+});
+
+// 카드 섞기
+cards = cards.sort(()=>Math.random()-0.5);
+
+// 화면 렌더링
+const game = document.getElementById("game");
+cards.forEach((c,idx)=>{
+  const card = document.createElement("div");
+  card.className = "card " + c.type;
+  card.textContent = c.text;
+  card.dataset.pair = c.pair;
+  card.dataset.type = c.type;
+  card.dataset.index = idx;
+  game.appendChild(card);
+});
+
+let first = null;
+let lock = false;
+let matchCount = 0;
+
+// 타이머
+let start = performance.now();
+function updateTime(){
+  const now = performance.now();
+  document.getElementById("time").textContent = ((now-start)/1000).toFixed(1);
+  if(matchCount < cards.length/2) requestAnimationFrame(updateTime);
+}
+updateTime();
+
+const bestKey = "match_best";
+if(localStorage.getItem(bestKey)){
+  document.getElementById("best").textContent = localStorage.getItem(bestKey)+"초";
+}
+
+// 카드 클릭 기능
+document.querySelectorAll(".card").forEach(card=>{
+  card.addEventListener("click",()=>{
+    if(lock || card.classList.contains("matched")) return;
+
+    card.style.border = "3px solid var(--accent)";
+
+    if(!first){
+      first = card;
+    } else {
+      lock = true;
+
+      if(first.dataset.pair === card.textContent &&
+         card.dataset.pair === first.textContent){
+
+        // 매칭 성공
+        first.classList.add("matched");
+        card.classList.add("matched");
+        matchCount++;
+
+        setTimeout(()=>{
+          first.classList.add("hide");
+          card.classList.add("hide");
+          first = null;
+          lock = false;
+
+          if(matchCount === cards.length/2){
+            const final = parseFloat(document.getElementById("time").textContent);
+            let best = localStorage.getItem(bestKey);
+            if(!best || final < best){
+              localStorage.setItem(bestKey, final);
+              document.getElementById("best").textContent = final+"초";
+            }
+            alert("축하합니다! 모든 카드를 맞췄습니다!");
+          }
+        },400);
+
+      } else {
+        // 실패
+        setTimeout(()=>{
+          first.style.border = "none";
+          card.style.border = "none";
+          first = null;
+          lock = false;
+        },500);
+      }
+    }
+  });
+});
+</script>
+
+</body>
+</html>
