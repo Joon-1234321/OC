@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>단어 학습 활동지</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f4f7f9;
+        }
+
+        /* 메인 컨테이너 */
+        .activity-container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        /* 단계 표시 */
+        h3 {
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 25px;
+        }
+
+        /* 플래시카드 스타일 */
+        .flashcard-area {
+            position: relative;
+            width: 300px;
+            height: 180px;
+            margin: 20px auto;
+            perspective: 1000px;
+        }
+
+        .card-inner {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.8s;
+            transform-style: preserve-3d;
+        }
+        
+        /* 카드 뒤집기 상태 */
+        .flashcard-area.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 36px;
+            font-weight: bold;
+            color: white;
+            backface-visibility: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            background-color: #3B82F6; /* 파란색 */
+            /* 여기서 transition 시간을 2.0s로 변경하여 페이드 아웃 시간을 2초로 만듭니다. */
+            transition: opacity 2.0s ease-in-out; 
+        }
+        
+        /* 카드 앞면 */
+        .card-front {
+            z-index: 2;
+        }
+
+        /* 카드 뒷면 (뜻 맞추기 시 사용) */
+        .card-back {
+            background-color: #FBBF24; /* 노란색 */
+            transform: rotateY(180deg);
+            font-size: 24px;
+            color: #333;
+        }
+
+        /* 1단계: 단어 노출 및 숨김 효과 */
+        .fade-out {
+            opacity: 0;
+            pointer-events: none; /* 클릭 방지 */
+        }
+        
+        /* 2단계: 스펠링 입력 UI */
+        #spelling-input-area {
+            margin-top: 20px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #spelling-input {
+            padding: 10px;
+            font-size: 20px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            width: 80%;
+            max-width: 350px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .action-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin: 0 5px;
+        }
+
+        #hint-button {
+            background-color: #EF4444; /* 빨간색 */
+            color: white;
+        }
+        #hint-button:hover {
+            background-color: #DC2626;
+        }
+
+        .message {
+            margin-top: 10px;
+            font-weight: bold;
+            height: 30px; /* 메시지 영역 확보 */
+        }
+
+        .correct { color: #10B981; } /* 녹색 */
+        .incorrect { color: #EF4444; } /* 빨간색 */
+
+        /* 3단계: 4지선다 UI */
+        #quiz-area {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .choice-button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 8px 0;
+            background-color: #E5E7EB;
+            border: 1px solid #D1D5DB;
+            border-radius: 6px;
+            text-align: left;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .choice-button:hover:not(:disabled) {
+            background-color: #D1D5DB;
+        }
+        
+        /* 결과 화면 */
+        #result-screen {
+            display: none;
+            font-size: 24px;
+            color: #10B981;
+            margin-top: 30px;
+        }
+        
+        /* 버튼 비활성화 시 스타일 */
+        .choice-button:disabled {
+            cursor: default;
+            opacity: 0.7;
+        }
+        .correct-choice {
+            background-color: #34D399 !important; /* Tailwind green-400 */
+            color: white;
+            font-weight: bold;
+        }
+        .incorrect-choice {
+            background-color: #FCA5A5 !important; /* Tailwind red-300 */
+            color: black;
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="activity-container">
+        <h3 id="current-stage-title">1단계: 단어 기억하기</h3>
+
+        <div class="flashcard-area" id="flashcard-area">
+            <div class="card-inner" id="card-inner">
+                <div class="card-face card-front" id="card-front"></div>
+                <div class="card-face card-back" id="card-back"></div>
+            </div>
+        </div>
+
+        <div id="spelling-input-area">
+            <input type="text" id="spelling-input" placeholder="여기에 단어를 입력하세요" disabled>
+            <div class="message" id="spelling-message"></div>
+            <div>
+                <button class="action-button" id="hint-button">단어 다시 보기 (5초)</button>
+            </div>
+        </div>
+
+        <div id="quiz-area">
+            <div id="question-text" style="margin-bottom: 20px; font-size: 20px;"></div>
+            <div id="choices-container">
+                </div>
+        </div>
+        
+        <div id="result-screen">
+            🎉 학습 활동 완료! 🎉
+        </div>
+        
+    </div>
+
+    <script>
+        const words = [
+            { word: "visit", meaning: "방문하다" },
+            { word: "museum", meaning: "박물관" },
+            { word: "suitcase", meaning: "여행 가방, 수트케이스" },
+            { word: "order", meaning: "주문하다" },
+            { word: "pack", meaning: "짐을 싸다" },
+            { word: "book", meaning: "예매하다, 예약하다" },
+            { word: "flight", meaning: "항공편, 비행기" },
+            { word: "souvenir", meaning: "기념품" },
+            { word: "shop", meaning: "가게, 쇼핑하다" },
+            { word: "restaurant", meaning: "식당, 레스토랑" }
+        ];
+
+        let currentWordIndex = 0;
+        let isFlashing = false; // 힌트 버튼 중복 클릭 방지
+        
+        // DOM 요소 참조
+        const stageTitle = document.getElementById('current-stage-title');
+        const cardArea = document.getElementById('flashcard-area');
+        const cardInner = document.getElementById('card-inner');
+        const cardFront = document.getElementById('card-front');
+        const cardBack = document.getElementById('card-back');
+        const spellingArea = document.getElementById('spelling-input-area');
+        const spellingInput = document.getElementById('spelling-input');
+        const spellingMessage = document.getElementById('spelling-message');
+        const hintButton = document.getElementById('hint-button');
+        const quizArea = document.getElementById('quiz-area');
+        const questionText = document.getElementById('question-text');
+        const choicesContainer = document.getElementById('choices-container');
+        const resultScreen = document.getElementById('result-screen');
+
+        // --- 1단계: 단어 노출 및 숨김 ---
+
+        function startStageOne() {
+            if (currentWordIndex >= words.length) {
+                showResultScreen();
+                return;
+            }
+            
+            // UI 초기화
+            stageTitle.textContent = `1단계: 단어 기억하기 (${currentWordIndex + 1}/${words.length})`;
+            spellingArea.style.display = 'none';
+            quizArea.style.display = 'none';
+            cardArea.classList.remove('flipped');
+            cardFront.style.opacity = '1';
+
+            const currentWord = words[currentWordIndex].word;
+            cardFront.textContent = currentWord;
+
+            // 1. 3초 후 페이드 아웃 시작
+            setTimeout(() => {
+                cardFront.style.opacity = '0'; // 페이드 아웃 시작 (opacity: 1 -> 0)
+                
+                // 2. 페이드 아웃이 완전히 끝나는 2초 후 (총 5초 시점) 다음 단계 시작
+                setTimeout(startStageTwo, 2000); 
+            }, 3000); 
+        }
+
+        // --- 2단계: 스펠링 입력 ---
+
+        function startStageTwo() {
+            stageTitle.textContent = `2단계: 스펠링 입력 (${currentWordIndex + 1}/${words.length})`;
+            spellingArea.style.display = 'flex';
+            spellingInput.value = '';
+            spellingInput.disabled = false;
+            spellingInput.focus();
+            spellingMessage.textContent = '';
+        }
+
+        // 스펠링 확인 로직
+        function checkSpelling() {
+            const currentWord = words[currentWordIndex].word;
+            const input = spellingInput.value.trim().toLowerCase();
+            
+            if (input === currentWord.toLowerCase()) {
+                spellingInput.disabled = true;
+                spellingMessage.className = 'message correct';
+                spellingMessage.textContent = '✅ 정답입니다! 다음 단계로 이동합니다.';
+                
+                // 잠시 후 3단계 시작
+                setTimeout(startStageThree, 1500);
+            } else {
+                spellingMessage.className = 'message incorrect';
+                spellingMessage.textContent = '❌ 틀렸습니다. 다시 시도해 보세요.';
+                spellingInput.value = '';
+                spellingInput.focus();
+            }
+        }
+
+        // 힌트 버튼 클릭 이벤트
+        hintButton.addEventListener('click', () => {
+            if (isFlashing) return;
+            
+            isFlashing = true;
+            cardFront.style.opacity = '1';
+            
+            // 5초간 단어 노출 후 다시 숨김
+            setTimeout(() => {
+                cardFront.style.opacity = '0';
+                // 힌트가 사라지는 시간도 2초로 통일 (CSS transition: 2.0s)
+                setTimeout(() => {
+                    isFlashing = false;
+                }, 2000);
+            }, 5000);
+        });
+
+        // 엔터 키 이벤트 리스너
+        spellingInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !spellingInput.disabled) {
+                checkSpelling();
+            }
+        });
+
+
+        // --- 3단계: 뜻 맞추기 4지선다 ---
+        
+        function startStageThree() {
+            stageTitle.textContent = `3단계: 뜻 맞추기 (${currentWordIndex + 1}/${words.length})`;
+            spellingArea.style.display = 'none';
+            quizArea.style.display = 'block';
+            
+            // 카드 뒤집기
+            cardArea.classList.add('flipped');
+            cardBack.textContent = words[currentWordIndex].word; // 카드 뒷면에는 단어 다시 표시
+
+            questionText.textContent = `단어 "${words[currentWordIndex].word}"의 뜻은 무엇인가요?`;
+            generateQuiz();
+        }
+
+        // 퀴즈 문제와 선택지 생성
+        function generateQuiz() {
+            choicesContainer.innerHTML = '';
+            const currentWord = words[currentWordIndex];
+            const choices = [currentWord.meaning]; // 정답을 먼저 추가
+
+            // 오답 3개 추가 (현재 단어의 뜻이 아닌 다른 뜻들 중에서 무작위 선택)
+            const incorrectMeanings = words
+                .filter(w => w.meaning !== currentWord.meaning)
+                .map(w => w.meaning);
+
+            // Fisher-Yates 셔플 알고리즘을 사용하여 오답을 무작위로 섞고 3개만 선택
+            for (let i = incorrectMeanings.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [incorrectMeanings[i], incorrectMeanings[j]] = [incorrectMeanings[j], incorrectMeanings[i]];
+            }
+            choices.push(...incorrectMeanings.slice(0, 3));
+            
+            // 선택지 전체를 셔플
+            for (let i = choices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [choices[i], choices[j]] = [choices[j], choices[i]];
+            }
+
+            // 버튼 생성
+            choices.forEach(meaning => {
+                const button = document.createElement('button');
+                button.className = 'choice-button';
+                button.textContent = meaning;
+                button.addEventListener('click', () => checkMeaning(button, meaning, currentWord.meaning));
+                choicesContainer.appendChild(button);
+            });
+        }
+
+        // 뜻 맞추기 정답 확인 로직
+        function checkMeaning(clickedButton, selectedMeaning, correctMeaning) {
+            // 모든 버튼 비활성화
+            Array.from(choicesContainer.children).forEach(btn => btn.disabled = true);
+
+            if (selectedMeaning === correctMeaning) {
+                clickedButton.classList.add('correct-choice');
+                
+                // 잠시 후 다음 단어로 이동
+                setTimeout(() => {
+                    currentWordIndex++;
+                    startStageOne(); // 다음 단어로 순환
+                }, 1500);
+            } else {
+                clickedButton.classList.add('incorrect-choice');
+                
+                // 정답 버튼 표시
+                Array.from(choicesContainer.children).forEach(btn => {
+                    if (btn.textContent === correctMeaning) {
+                        btn.classList.add('correct-choice');
+                    }
+                });
+                
+                // 잠시 후 재시도 (다음 단어로 넘어가지 않고, 3단계 퀴즈를 다시 시작)
+                setTimeout(() => {
+                    // 버튼 활성화 및 초기화
+                    Array.from(choicesContainer.children).forEach(btn => {
+                        btn.disabled = false;
+                        btn.classList.remove('incorrect-choice', 'correct-choice');
+                    });
+                }, 2000);
+            }
+        }
+
+        // 최종 완료 화면
+        function showResultScreen() {
+            stageTitle.style.display = 'none';
+            cardArea.style.display = 'none';
+            spellingArea.style.display = 'none';
+            quizArea.style.display = 'none';
+            resultScreen.style.display = 'block';
+        }
+
+        // 프로그램 시작
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
+
+        startStageOne();
+        
+    </script>
+</body>
+</html>

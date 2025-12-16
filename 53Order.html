@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>문장 완성 활동지</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #e6f3ff;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        .activity-container {
+            width: 100%;
+            max-width: 650px;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        /* 진행 상황 및 목표 */
+        .progress-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        #progress {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1a73e8;
+        }
+
+        #meaning-text {
+            font-size: 18px;
+            font-weight: 500;
+            color: #d93025;
+            padding: 5px 10px;
+            background-color: #ffe8e6;
+            border-radius: 5px;
+        }
+
+        /* 입력 공간 (문장 완성될 곳) */
+        .sentence-input {
+            min-height: 80px;
+            border: 3px dashed #a8c8e6;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 30px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            background-color: #f7faff;
+        }
+
+        /* 단어 칩 스타일 (입력된 단어) */
+        .input-chip {
+            padding: 8px 15px;
+            background-color: #1a73e8;
+            color: white;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .input-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 단어 칩 풀 (섞인 단어들) */
+        .word-pool {
+            min-height: 120px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            background-color: #fff;
+        }
+
+        /* 단어 칩 스타일 (클릭 대기 중인 단어) */
+        .pool-chip {
+            padding: 8px 15px;
+            background-color: #d9e3f1;
+            color: #333;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        .pool-chip:hover {
+            background-color: #c4d7f0;
+            transform: translateY(-2px);
+        }
+
+        /* 컨트롤 버튼 */
+        .controls {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        #check-button {
+            padding: 12px 30px;
+            font-size: 18px;
+            background-color: #0b8043;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #check-button:hover {
+            background-color: #086637;
+        }
+        
+        /* 재시작 버튼 스타일 */
+        .action-button { 
+            padding: 10px 25px;
+            font-size: 18px;
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .action-button:hover {
+            background-color: #3b78e7;
+        }
+        
+        /* 메시지 */
+        #message {
+            margin-top: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            min-height: 30px;
+        }
+        .correct { color: #0b8043; }
+        .incorrect { color: #d93025; }
+
+        /* 별 효과 (CSS 애니메이션으로 간단히 구현) */
+        .star-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 1000;
+        }
+        @keyframes twinkle {
+            0% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 1; transform: scale(1.5); }
+            100% { opacity: 0; transform: scale(0.8); }
+        }
+        .star {
+            position: absolute;
+            color: gold;
+            font-size: 20px;
+            animation: twinkle 1.5s ease-out forwards;
+            opacity: 0;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="activity-container">
+        <h2>단어 칩 문장 완성</h2>
+        
+        <div class="progress-area">
+            <div id="progress">진행 상황: 0/12</div>
+            <div id="meaning-text"></div>
+        </div>
+
+        <div class="sentence-input" id="sentence-input">
+            </div>
+
+        <div class="word-pool" id="word-pool">
+            </div>
+
+        <div class="controls">
+            <button id="check-button">확인</button>
+        </div>
+        
+        <div id="message"></div>
+        
+        <div id="completion-screen" style="display:none; text-align:center;">
+            <div style="font-size: 24px; color: #1a73e8; margin-bottom: 20px;">🎉 모든 문장 완성! 🎉</div>
+            <button id="restart-button" class="action-button">다시 시작하기</button>
+        </div>
+        
+    </div>
+    
+    <div class="star-container" id="star-container"></div>
+
+    <script>
+        const sentences = [
+            { meaning: "나는 박물관을 방문할 것이다.", text: "I will visit the museum." },
+            { meaning: "그녀는 거기서 점심을 주문했다.", text: "She ordered lunch there." },
+            { meaning: "나는 오늘 여행 가방을 쌀 것이다.", text: "I will pack the suitcase today." },
+            { meaning: "그는 항공권(비행기표)을 예매했다.", text: "He booked the flight ticket." },
+            { meaning: "나는 내일 기념품을 살 것이다.", text: "I will buy souvenirs tomorrow." },
+            { meaning: "우리는 제주도를 방문할 것이다.", text: "We will visit Jeju." },
+            { meaning: "나는 식당을 예약했다.", text: "I booked the restaurant." },
+            { meaning: "그는 치즈 피자를 주문할 것이다.", text: "He will order a cheese pizza." },
+            { meaning: "그녀는 여행 가방을 살 것이다.", text: "She will buy a suitcase." },
+            { meaning: "나는 기념품 하나를 살 것이다.", text: "I will buy a souvenir." },
+            { meaning: "나는 기념품 가게를 방문할 것이다.", text: "I will visit a souvenir shop." },
+            { meaning: "그는 항공편을 예약할 것이다.", text: "He will book a flight." }
+        ];
+
+        let currentSentenceIndex = 0;
+        
+        // DOM 요소 참조
+        const progressEl = document.getElementById('progress');
+        const meaningTextEl = document.getElementById('meaning-text');
+        const sentenceInputEl = document.getElementById('sentence-input');
+        const wordPoolEl = document.getElementById('word-pool');
+        const checkButton = document.getElementById('check-button');
+        const messageEl = document.getElementById('message');
+        const starContainerEl = document.getElementById('star-container');
+        const completionScreenEl = document.getElementById('completion-screen'); // 새로 추가
+        const restartButton = document.getElementById('restart-button'); // 새로 추가
+
+        // --- 유틸리티 함수 ---
+
+        // 배열 섞기 (Fisher-Yates)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // 별 효과 뿌리기
+        function sprinkleStars() {
+            for (let i = 0; i < 20; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.textContent = '⭐'; // 또는 '✨'
+                
+                // 화면의 랜덤 위치에 별 생성
+                const x = Math.random() * window.innerWidth;
+                const y = Math.random() * window.innerHeight;
+                star.style.left = `${x}px`;
+                star.style.top = `${y}px`;
+                
+                // 애니메이션 시작 지연
+                star.style.animationDelay = `${Math.random() * 0.5}s`;
+                starContainerEl.appendChild(star);
+                
+                // 애니메이션이 끝나면 요소 제거
+                star.addEventListener('animationend', () => star.remove());
+            }
+        }
+
+        // --- 게임 로직 ---
+
+        function loadSentence() {
+            if (currentSentenceIndex >= sentences.length) {
+                showCompletionScreen();
+                return;
+            }
+            
+            const currentData = sentences[currentSentenceIndex];
+            
+            // UI 초기화
+            messageEl.textContent = '';
+            sentenceInputEl.innerHTML = '';
+            wordPoolEl.innerHTML = '';
+            checkButton.disabled = false;
+            completionScreenEl.style.display = 'none'; // 혹시 모를 상황 대비
+
+            // 진행 상황 업데이트
+            progressEl.textContent = `진행 상황: ${currentSentenceIndex + 1}/${sentences.length}`;
+            meaningTextEl.textContent = currentData.meaning;
+
+            // 단어 분리 및 섞기
+            const words = currentData.text.replace(/[.]/g, '').split(' ');
+            const shuffledWords = [...words]; // 복사본 생성
+            shuffleArray(shuffledWords);
+            
+            // 단어 칩 생성
+            shuffledWords.forEach((word, index) => {
+                const chip = document.createElement('div');
+                chip.className = 'pool-chip';
+                chip.textContent = word;
+                chip.dataset.originalIndex = index; // 섞인 배열에서의 원래 위치 (단순 식별용)
+                chip.onclick = () => moveChipToInput(chip, word);
+                wordPoolEl.appendChild(chip);
+            });
+        }
+
+        // 단어 칩을 풀에서 입력 영역으로 이동
+        function moveChipToInput(chip, word) {
+            // 풀에서 제거
+            chip.remove();
+            
+            // 입력 칩 생성
+            const inputChip = document.createElement('div');
+            inputChip.className = 'input-chip';
+            inputChip.textContent = word;
+            inputChip.dataset.originalPoolIndex = chip.dataset.originalIndex; // 복귀 위치 식별자
+            inputChip.onclick = () => moveChipToPool(inputChip);
+            
+            // 입력 영역에 추가
+            sentenceInputEl.appendChild(inputChip);
+        }
+
+        // 입력 칩을 입력 영역에서 풀로 되돌리기
+        function moveChipToPool(inputChip) {
+            const originalWord = inputChip.textContent;
+            
+            // 입력 영역에서 제거
+            inputChip.remove();
+            
+            // 풀 칩 재생성 및 추가
+            const poolChip = document.createElement('div');
+            poolChip.className = 'pool-chip';
+            poolChip.textContent = originalWord;
+            poolChip.dataset.originalIndex = inputChip.dataset.originalPoolIndex; 
+            poolChip.onclick = () => moveChipToInput(poolChip, originalWord);
+            
+            // 풀의 맨 끝에 추가 (원래 순서를 완벽히 유지하려면 더 복잡한 로직 필요)
+            wordPoolEl.appendChild(poolChip);
+        }
+
+        // 정답 확인
+        checkButton.addEventListener('click', () => {
+            const inputChips = Array.from(sentenceInputEl.children);
+            const userSentence = inputChips.map(chip => chip.textContent).join(' ') + '.';
+            
+            // 정답은 마침표(.)를 포함한 원문
+            const correctSentence = sentences[currentSentenceIndex].text; 
+
+            if (userSentence === correctSentence) {
+                messageEl.className = 'message correct';
+                messageEl.textContent = '✨ 정답입니다! 다음 문제로 이동합니다! ✨';
+                checkButton.disabled = true;
+                
+                // 별 효과 호출
+                sprinkleStars();
+
+                setTimeout(() => {
+                    currentSentenceIndex++;
+                    loadSentence(); // 다음 문제 로드
+                }, 2500);
+                
+            } else {
+                messageEl.className = 'message incorrect';
+                messageEl.textContent = '❌ 문장 순서가 틀렸습니다. 다시 시도해 보세요.';
+            }
+        });
+
+        // 완료 화면
+        function showCompletionScreen() {
+            sentenceInputEl.innerHTML = '';
+            meaningTextEl.textContent = '';
+            wordPoolEl.innerHTML = '';
+            checkButton.style.display = 'none';
+            messageEl.style.display = 'none';
+            progressEl.textContent = '12/12';
+            
+            // 완료 화면 보이기
+            completionScreenEl.style.display = 'block';
+            
+            sprinkleStars();
+        }
+        
+        // 재시작 버튼 클릭 이벤트
+        restartButton.addEventListener('click', () => {
+            currentSentenceIndex = 0; // 문제 인덱스 초기화
+            checkButton.style.display = 'block'; // 확인 버튼 다시 보이게
+            completionScreenEl.style.display = 'none'; // 완료 화면 숨기기
+            loadSentence(); // 첫 번째 문제부터 다시 로드
+        });
+
+        // 초기 로드
+        loadSentence();
+    </script>
+</body>
+</html>
